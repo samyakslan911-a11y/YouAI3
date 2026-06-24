@@ -94,6 +94,20 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                     "start": seg.get("start"),
                     "end": seg.get("end"),
                 }
+                # Generate thumbnail
+                try:
+                    from src.services.thumbnailer import generate_thumbnail
+                    thumb = generate_thumbnail(
+                        clip_path,
+                        title=meta["title"],
+                        hook=meta["hook"],
+                        score=meta["score"],
+                    )
+                    meta["thumbnail"] = thumb.name
+                    log(f"Thumbnail generado: {thumb.name}")
+                except Exception as te:
+                    log(f"Thumbnail omitido: {te}")
+
                 sidecar = clip_path.with_suffix(".json")
                 sidecar.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
                 job = job_store.get(job_id)
@@ -189,6 +203,7 @@ def list_clips():
                 meta["hook"] = saved.get("hook", "")
                 meta["score"] = saved.get("score")
                 meta["virality_reason"] = saved.get("virality_reason", "")
+                meta["thumbnail"] = saved.get("thumbnail")
             except Exception:
                 pass
         clips.append(meta)
@@ -198,9 +213,44 @@ def list_clips():
 @app.get("/api/clips/{filename}")
 def serve_clip(filename: str):
     path = OUTPUT_DIR / filename
+    if not path.exists() or not path.name.endswith((".mp4", ".jpg")):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    media = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
+    return FileResponse(path, media_type=media)
+
+
+@app.post("/api/clips/{filename}/thumbnail")
+def regen_thumbnail(filename: str):
+    path = OUTPUT_DIR / filename
     if not path.exists() or not path.name.endswith(".mp4"):
         raise HTTPException(status_code=404, detail="Clip not found")
-    return FileResponse(path, media_type="video/mp4")
+    title, hook, score = path.stem, "", None
+    sidecar = path.with_suffix(".json")
+    if sidecar.exists():
+        try:
+            saved = json.loads(sidecar.read_text(encoding="utf-8"))
+            title = saved.get("title", title)
+            hook = saved.get("hook", "")
+            score = saved.get("score")
+        except Exception:
+            pass
+    try:
+        from src.services.thumbnailer import generate_thumbnail
+        thumb_path = path.with_name(path.stem + "_thumb.jpg")
+        if thumb_path.exists():
+            thumb_path.unlink()  # force regen
+        thumb = generate_thumbnail(path, title=title, hook=hook, score=score)
+        # update sidecar
+        if sidecar.exists():
+            try:
+                saved = json.loads(sidecar.read_text(encoding="utf-8"))
+                saved["thumbnail"] = thumb.name
+                sidecar.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+            except Exception:
+                pass
+        return {"thumbnail": thumb.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class PublishRequest(BaseModel):

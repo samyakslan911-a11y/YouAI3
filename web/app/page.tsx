@@ -696,6 +696,77 @@ function ProcessSection({
   );
 }
 
+// ── Clip Card ─────────────────────────────────────────────────────────────────
+function ClipCard({ clip: c }: { clip: import("../lib/api").Clip }) {
+  const [view, setView] = useState<"video" | "thumb">("video");
+  const [thumbLoading, setThumbLoading] = useState(false);
+  const [thumbSrc, setThumbSrc] = useState(c.thumbnail ? api.thumbnailUrl(c.thumbnail) : null);
+
+  async function regenThumb() {
+    setThumbLoading(true);
+    try {
+      const res = await api.regenThumbnail(c.filename);
+      setThumbSrc(api.thumbnailUrl(res.thumbnail));
+      setView("thumb");
+    } catch { /* ignore */ }
+    finally { setThumbLoading(false); }
+  }
+
+  return (
+    <motion.div variants={fadeUp}
+      className="group bg-zinc-900 border border-zinc-800 hover:border-red-500/30 rounded-2xl overflow-hidden transition-all hover:shadow-[0_0_25px_rgba(239,68,68,0.1)]">
+      <div className="relative bg-zinc-950">
+        {view === "thumb" && thumbSrc
+          ? <img src={thumbSrc} alt={c.title} className="w-full aspect-[9/16] object-cover" />
+          : <video src={api.clipUrl(c.filename)} controls preload="metadata" className="w-full aspect-[9/16] object-cover" />
+        }
+        {/* top-right controls */}
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {thumbSrc && (
+            <button onClick={() => setView(v => v === "video" ? "thumb" : "video")}
+              className="bg-black/70 backdrop-blur text-[10px] px-2 py-0.5 rounded-full text-zinc-300 hover:text-white transition-colors">
+              {view === "video" ? "Thumb" : "Video"}
+            </button>
+          )}
+          <span className="bg-black/70 backdrop-blur text-[10px] px-2 py-0.5 rounded-full text-zinc-400">9:16</span>
+        </div>
+      </div>
+      <div className="p-3 space-y-1.5">
+        <div className="flex items-start justify-between gap-1.5">
+          {c.title && <p className="text-xs font-semibold text-zinc-200 line-clamp-1 flex-1">{c.title}</p>}
+          <ScoreBadge score={c.score} reason={c.virality_reason} />
+        </div>
+        {c.virality_reason && (
+          <p className="text-[10px] text-zinc-600 line-clamp-1 italic">{c.virality_reason}</p>
+        )}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs text-zinc-600">{c.size_mb} MB</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <a href={api.clipUrl(c.filename)} download={c.filename}
+              className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
+              <Download size={11} /> Clip
+            </a>
+            {thumbSrc && (
+              <a href={thumbSrc} download={c.thumbnail}
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
+                <Download size={11} /> Thumb
+              </a>
+            )}
+            {!thumbSrc && (
+              <button onClick={regenThumb} disabled={thumbLoading}
+                className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-300 transition-colors disabled:opacity-40">
+                {thumbLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                Thumb
+              </button>
+            )}
+            <PublishButton filename={c.filename} />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Clips ─────────────────────────────────────────────────────────────────────
 function ClipsSection({ refreshKey }: { refreshKey: number }) {
   const [clips, setClips] = useState<import("../lib/api").Clip[]>([]);
@@ -725,34 +796,7 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {clips.map((c) => (
-        <motion.div key={c.filename} variants={fadeUp}
-          className="group bg-zinc-900 border border-zinc-800 hover:border-red-500/30 rounded-2xl overflow-hidden transition-all hover:shadow-[0_0_25px_rgba(239,68,68,0.1)]">
-          <div className="relative bg-zinc-950">
-            <video src={api.clipUrl(c.filename)} controls preload="metadata" className="w-full aspect-[9/16] object-cover" />
-            <div className="absolute top-2 right-2">
-              <span className="bg-black/70 backdrop-blur text-[10px] px-2 py-0.5 rounded-full text-zinc-400">9:16</span>
-            </div>
-          </div>
-          <div className="p-3 space-y-1.5">
-            <div className="flex items-start justify-between gap-1.5">
-              {c.title && <p className="text-xs font-semibold text-zinc-200 line-clamp-1 flex-1">{c.title}</p>}
-              <ScoreBadge score={c.score} reason={c.virality_reason} />
-            </div>
-            {c.virality_reason && (
-              <p className="text-[10px] text-zinc-600 line-clamp-1 italic">{c.virality_reason}</p>
-            )}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs text-zinc-600">{c.size_mb} MB</span>
-              <div className="flex items-center gap-2">
-                <a href={api.clipUrl(c.filename)} download={c.filename}
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
-                  <Download size={11} /> Descargar
-                </a>
-                <PublishButton filename={c.filename} />
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        <ClipCard key={c.filename} clip={c} />
       ))}
     </motion.div>
   );

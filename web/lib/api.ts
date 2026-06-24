@@ -29,6 +29,7 @@ export type Clip = {
   hook?: string;
   score?: number;
   virality_reason?: string;
+  thumbnail?: string;
 };
 
 export type Job = {
@@ -75,6 +76,11 @@ export const api = {
   listClips: () => apiFetch<{ clips: Clip[] }>("/api/clips"),
 
   clipUrl: (filename: string) => `${BASE}/api/clips/${filename}`,
+
+  thumbnailUrl: (thumbnail: string) => `${BASE}/api/clips/${thumbnail}`,
+
+  regenThumbnail: (filename: string) =>
+    apiFetch<{ thumbnail: string }>(`/api/clips/${encodeURIComponent(filename)}/thumbnail`, { method: "POST" }),
 
   publishClip: (filename: string, platform = "youtube") =>
     apiFetch<{ platform: string; url: string }>(`/api/clips/${encodeURIComponent(filename)}/publish`, {
