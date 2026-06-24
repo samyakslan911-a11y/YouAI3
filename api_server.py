@@ -34,6 +34,8 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 class ProcessRequest(BaseModel):
     url: str
     dry_run: bool = False
+    caption_style: str = "capcut"   # "capcut" | "subtitles" | "none"
+    face_track: bool = True
 
 
 class ResearchRequest(BaseModel):
@@ -46,7 +48,7 @@ class ResearchRequest(BaseModel):
 
 # ── Background pipeline ───────────────────────────────────────────────────────
 
-def _run_pipeline(job_id: str, url: str, dry_run: bool):
+def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "capcut", face_track: bool = True):
     from src.core.pipeline import ContentPipeline
     from src.services import editor
 
@@ -79,7 +81,12 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool):
         for i, seg in enumerate(viral_segments):
             try:
                 log(f"Procesando clip {i+1}/{len(viral_segments)}: {seg.get('title')}")
-                clip_path = editor.process_segment(video_path, seg, i, duration)
+                clip_path = editor.process_segment(
+                    video_path, seg, i, duration,
+                    all_segments=segments_raw,
+                    caption_style=caption_style,
+                    face_track=face_track,
+                )
                 meta = {
                     "filename": clip_path.name,
                     "title": seg.get("title", ""),
@@ -116,7 +123,7 @@ def health():
 def create_job(req: ProcessRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())[:8]
     _jobs[job_id] = {"status": "queued", "logs": [], "clips": [], "error": ""}
-    background_tasks.add_task(_run_pipeline, job_id, req.url, req.dry_run)
+    background_tasks.add_task(_run_pipeline, job_id, req.url, req.dry_run, req.caption_style, req.face_track)
     return {"job_id": job_id}
 
 

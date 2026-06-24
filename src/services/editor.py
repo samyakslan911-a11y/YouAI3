@@ -1,8 +1,10 @@
 import re
 import subprocess
+import tempfile
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from src.utils.config import OUTPUT_DIR
 from src.utils.logger import get_logger
@@ -10,6 +12,7 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 TARGET_W, TARGET_H = 1080, 1920  # 9:16 vertical
+CaptionStyle = Literal["capcut", "subtitles", "none"]
 
 
 def _slugify(text: str) -> str:
@@ -21,8 +24,9 @@ def _slugify(text: str) -> str:
 def _ffmpeg(cmd: list) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
-        # Extract the actual error lines, skip the build config
-        lines = [l for l in result.stderr.splitlines() if l and not l.startswith(" ") and "built with" not in l and "configuration" not in l and "lib" not in l]
+        lines = [l for l in result.stderr.splitlines()
+                 if l and not l.startswith(" ") and "built with" not in l
+                 and "configuration" not in l and "lib" not in l]
         raise RuntimeError("\n".join(lines[-8:]))
 
 
@@ -38,36 +42,239 @@ def get_video_duration(video_path: Path) -> float:
         return 0.0
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=1)
 def _find_font() -> str:
     candidates = [
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",  # Railway (fonts-liberation)
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        r"C:\Windows\Fonts\arialbd.ttf",
         r"C:\Windows\Fonts\arial.ttf",
-        r"C:\Windows\Fonts\calibri.ttf",
-        r"C:\Windows\Fonts\segoeui.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
     ]
     for f in candidates:
         if Path(f).exists():
-            return f.replace("\\", "/").replace(":", "\\:")
+            return f
     return ""
 
 
-def cut_and_format(video_path: Path, start: float, end: float, output_path: Path) -> Path:
-    # Blur background: original video blurred fills 9:16, foreground centered on top.
-    # Eliminates black bars and crops out edge watermarks.
-    vf = (
+# ── Face tracking ─────────────────────────────────────────────────────────────
+
+def _detect_face_track(video_path: Path, start: float, end: float) -> int:
+    """
+    Sample frames from [start, end], detect faces with OpenCV DNN,
+    smooth with EMA, return x-offset from center in pixels.
+    Returns 0 on failure or insufficient detection.
+    """
+    try:
+        import cv2
+        import urllib.request
+        import numpy as np
+    except ImportError:
+        log.warning("opencv no disponible, usando crop centrado")
+        return 0
+
+    # Download DNN model files to /tmp on first use (~10MB total)
+    model_dir = Path(tempfile.gettempdir()) / "cv_face"
+    model_dir.mkdir(exist_ok=True)
+    proto = model_dir / "deploy.prototxt"
+    caffemodel = model_dir / "res10_300x300_ssd_iter_140000.caffemodel"
+
+    proto_url = "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt"
+    model_url = "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
+
+    try:
+        if not proto.exists():
+            urllib.request.urlretrieve(proto_url, proto)
+        if not caffemodel.exists():
+            urllib.request.urlretrieve(model_url, caffemodel)
+        net = cv2.dnn.readNetFromCaffe(str(proto), str(caffemodel))
+    except Exception as e:
+        log.warning(f"No se pudo cargar modelo de face detection: {e}")
+        return 0
+
+    cap = cv2.VideoCapture(str(video_path))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    duration = end - start
+    n_samples = min(20, max(5, int(duration * 2)))
+    sample_times = [start + duration * i / (n_samples - 1) for i in range(n_samples)]
+
+    face_centers_x: list[float] = []
+
+    for t in sample_times:
+        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
+        ret, frame = cap.read()
+        if not ret:
+            continue
+        h, w = frame.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0,
+                                     (300, 300), (104.0, 177.0, 123.0))
+        net.setInput(blob)
+        detections = net.forward()
+        best_conf = 0.0
+        best_cx = None
+        for i in range(detections.shape[2]):
+            conf = float(detections[0, 0, i, 2])
+            if conf > 0.5 and conf > best_conf:
+                x1 = int(detections[0, 0, i, 3] * w)
+                x2 = int(detections[0, 0, i, 5] * w)
+                best_cx = (x1 + x2) / 2.0
+                best_conf = conf
+        if best_cx is not None:
+            face_centers_x.append(best_cx)
+
+    cap.release()
+
+    if len(face_centers_x) < n_samples * 0.3:
+        return 0  # fallback: not enough faces detected
+
+    # Exponential moving average (α=0.15) for smooth tracking
+    alpha = 0.15
+    smoothed = face_centers_x[0]
+    for cx in face_centers_x[1:]:
+        smoothed = alpha * cx + (1 - alpha) * smoothed
+
+    # Original video width (needed to compute offset from center)
+    cap2 = cv2.VideoCapture(str(video_path))
+    orig_w = int(cap2.get(cv2.CAP_PROP_FRAME_WIDTH)) or TARGET_W
+    cap2.release()
+
+    offset = int(smoothed - orig_w / 2)
+    # Clamp so crop doesn't exceed video bounds
+    max_offset = (orig_w - TARGET_W) // 2 if orig_w > TARGET_W else 0
+    return max(-max_offset, min(max_offset, offset))
+
+
+# ── Captions ──────────────────────────────────────────────────────────────────
+
+def _interpolate_word_timing(
+    segments: list[dict], clip_start: float, clip_end: float
+) -> list[dict]:
+    """
+    Distribute words proportionally within each segment's time range,
+    normalized to clip-relative time (clip_start → 0).
+    Returns list of {word, start, end} in seconds relative to clip start.
+    """
+    events: list[dict] = []
+    for seg in segments:
+        seg_start = float(seg.get("start", 0))
+        seg_end = float(seg.get("end", 0))
+        # Only include segments that overlap with the clip
+        if seg_end <= clip_start or seg_start >= clip_end:
+            continue
+        # Clamp to clip bounds
+        effective_start = max(seg_start, clip_start)
+        effective_end = min(seg_end, clip_end)
+        duration = effective_end - effective_start
+        if duration <= 0:
+            continue
+        text = seg.get("text", "").strip()
+        words = [w for w in text.split() if w]
+        if not words:
+            continue
+        word_dur = duration / len(words)
+        for i, word in enumerate(words):
+            ws = effective_start + i * word_dur - clip_start
+            we = ws + word_dur
+            events.append({"word": word, "start": max(0.0, ws), "end": we})
+    return events
+
+
+def _seconds_to_srt_ts(s: float) -> str:
+    s = max(0.0, s)
+    h = int(s // 3600)
+    m = int((s % 3600) // 60)
+    sec = int(s % 60)
+    ms = int((s - int(s)) * 1000)
+    return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
+
+
+def _build_srt(word_events: list[dict], style: CaptionStyle) -> Path | None:
+    if style == "none" or not word_events:
+        return None
+
+    srt_file = Path(tempfile.mktemp(suffix=".srt"))
+    entries: list[str] = []
+
+    if style == "capcut":
+        for i, ev in enumerate(word_events, 1):
+            entries.append(
+                f"{i}\n"
+                f"{_seconds_to_srt_ts(ev['start'])} --> {_seconds_to_srt_ts(ev['end'])}\n"
+                f"{ev['word'].upper()}\n"
+            )
+    else:  # subtitles: group into chunks of 4 words
+        chunk_size = 4
+        chunks = [word_events[i:i + chunk_size] for i in range(0, len(word_events), chunk_size)]
+        for i, chunk in enumerate(chunks, 1):
+            t_start = chunk[0]["start"]
+            t_end = chunk[-1]["end"]
+            text = " ".join(ev["word"] for ev in chunk)
+            entries.append(
+                f"{i}\n"
+                f"{_seconds_to_srt_ts(t_start)} --> {_seconds_to_srt_ts(t_end)}\n"
+                f"{text}\n"
+            )
+
+    srt_file.write_text("\n".join(entries), encoding="utf-8")
+    return srt_file
+
+
+def _caption_force_style(style: CaptionStyle, font_path: str) -> str:
+    font_name = Path(font_path).stem if font_path else "Arial"
+    if style == "capcut":
+        return (
+            f"FontName={font_name},FontSize=22,Bold=1,"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+            "Outline=4,Shadow=1,MarginV=200,Alignment=2"
+        )
+    return (
+        f"FontName={font_name},FontSize=14,Bold=1,"
+        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+        "Outline=3,Shadow=0,MarginV=80,Alignment=2"
+    )
+
+
+# ── Main functions ────────────────────────────────────────────────────────────
+
+def cut_and_format(
+    video_path: Path,
+    start: float,
+    end: float,
+    output_path: Path,
+    face_x_offset: int = 0,
+    srt_path: Path | None = None,
+    caption_style: CaptionStyle = "none",
+) -> Path:
+    # Build face-tracked crop: shift the foreground overlay horizontally
+    # Positive offset → shift right (face is right of center)
+    overlay_x = f"(W-w)/2+{face_x_offset}" if face_x_offset != 0 else "(W-w)/2"
+
+    filter_complex = (
         f"[0:v]scale={TARGET_W}:{TARGET_H}:force_original_aspect_ratio=increase,"
         f"crop={TARGET_W}:{TARGET_H},boxblur=20:3[bg];"
         f"[0:v]scale={TARGET_W}:{TARGET_H}:force_original_aspect_ratio=decrease[fg];"
-        f"[bg][fg]overlay=(W-w)/2:(H-h)/2"
+        f"[bg][fg]overlay={overlay_x}:(H-h)/2[out]"
     )
+
+    vf_parts = ["[0:v]split=1[out]"] if False else []  # placeholder for chaining
+    map_arg = "[out]"
+
+    # Subtitles filter applied after overlay
+    if srt_path and srt_path.exists():
+        font_path = _find_font()
+        force_style = _caption_force_style(caption_style, font_path)
+        srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:")
+        filter_complex += f";[out]subtitles='{srt_escaped}':force_style='{force_style}'[final]"
+        map_arg = "[final]"
+
     _ffmpeg([
         "ffmpeg", "-y",
         "-ss", str(start),
         "-i", str(video_path),
         "-t", str(end - start),
-        "-filter_complex", vf,
+        "-filter_complex", filter_complex,
+        "-map", map_arg,
+        "-map", "0:a?",
         "-c:v", "libx264", "-preset", "fast",
         "-profile:v", "high", "-level", "4.0",
         "-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
@@ -78,44 +285,15 @@ def cut_and_format(video_path: Path, start: float, end: float, output_path: Path
     return output_path
 
 
-def add_captions(clip_path: Path, text: str, output_path: Path) -> Path:
-    font_path = _find_font()
-
-    words = text.split()
-    lines, current = [], ""
-    for word in words:
-        if len(current) + len(word) + 1 > 40:
-            lines.append(current.strip())
-            current = word
-        else:
-            current += " " + word
-    if current:
-        lines.append(current.strip())
-    lines = lines[:3]
-
-    drawtext_filters = []
-    y_pos = TARGET_H - 160
-    font_opt = f"fontfile='{font_path}':" if font_path else ""
-    for line in lines:
-        safe = line.replace("'", "").replace(":", "").replace("\\", "")
-        drawtext_filters.append(
-            f"drawtext={font_opt}text='{safe}':fontsize=36:fontcolor=white"
-            f":borderw=2:bordercolor=black:x=(w-text_w)/2:y={y_pos}"
-        )
-        y_pos += 45
-
-    vf = ",".join(drawtext_filters) if drawtext_filters else "null"
-    _ffmpeg([
-        "ffmpeg", "-y", "-i", str(clip_path),
-        "-vf", vf,
-        "-c:v", "libx264", "-preset", "fast",
-        "-c:a", "copy",  # audio pass-through, no re-encode
-        str(output_path),
-    ])
-    return output_path
-
-
-def process_segment(video_path: Path, segment: dict, index: int, video_duration: float = 0.0) -> Path:
+def process_segment(
+    video_path: Path,
+    segment: dict,
+    index: int,
+    video_duration: float = 0.0,
+    all_segments: list[dict] | None = None,
+    caption_style: CaptionStyle = "capcut",
+    face_track: bool = True,
+) -> Path:
     stem = video_path.stem
     start, end = float(segment["start"]), float(segment["end"])
 
@@ -125,17 +303,38 @@ def process_segment(video_path: Path, segment: dict, index: int, video_duration:
         end = min(end, video_duration - 0.1)
 
     title_slug = _slugify(segment.get("title", f"clip_{index}"))[:30]
-    base = OUTPUT_DIR / f"{stem}_{index:02d}_{title_slug}"
-
-    vertical = base.parent / f"{base.name}_vertical.mp4"
-    final = Path(f"{base}_final.mp4")
+    final = OUTPUT_DIR / f"{stem}_{index:02d}_{title_slug}_final.mp4"
 
     log.info(f"Procesando clip {index+1}: {segment.get('title')} ({start:.1f}s - {end:.1f}s)")
 
-    cut_and_format(video_path, start, end, vertical)
-    add_captions(vertical, segment.get("hook", ""), final)
+    # Face tracking
+    face_x_offset = 0
+    if face_track:
+        log.info(f"  Detectando cara en clip {index+1}...")
+        face_x_offset = _detect_face_track(video_path, start, end)
+        if face_x_offset != 0:
+            log.info(f"  Face offset: {face_x_offset:+d}px")
+        else:
+            log.info("  Sin cara detectada — crop centrado")
 
-    vertical.unlink(missing_ok=True)
+    # Captions
+    srt_path: Path | None = None
+    if caption_style != "none" and all_segments:
+        word_events = _interpolate_word_timing(all_segments, start, end)
+        srt_path = _build_srt(word_events, caption_style)
+        if srt_path:
+            log.info(f"  Captions generadas ({caption_style}): {len(word_events)} palabras")
+
+    try:
+        cut_and_format(
+            video_path, start, end, final,
+            face_x_offset=face_x_offset,
+            srt_path=srt_path,
+            caption_style=caption_style,
+        )
+    finally:
+        if srt_path and srt_path.exists():
+            srt_path.unlink(missing_ok=True)
 
     log.info(f"Clip listo: {final.name}")
     return final

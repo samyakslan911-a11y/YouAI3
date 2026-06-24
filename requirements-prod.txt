@@ -9,3 +9,4 @@ google-auth-oauthlib>=1.2
 yt-dlp>=2026.6
 anthropic>=0.111
 openai>=1.60
+opencv-python-headless>=4.8.0

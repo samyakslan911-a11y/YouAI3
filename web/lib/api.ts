@@ -42,11 +42,16 @@ export const api = {
       `/api/research?query=${encodeURIComponent(query)}&min_ratio=${opts?.ratio ?? 3}&language=${opts?.lang ?? "es"}&cc_only=${opts?.cc ?? false}`
     ),
 
-  createJob: (url: string) =>
+  createJob: (url: string, opts?: { captionStyle?: string; faceTrack?: boolean }) =>
     apiFetch<{ job_id: string }>("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, dry_run: false }),
+      body: JSON.stringify({
+        url,
+        dry_run: false,
+        caption_style: opts?.captionStyle ?? "capcut",
+        face_track: opts?.faceTrack ?? true,
+      }),
     }),
 
   getJob: (id: string) => apiFetch<Job>(`/api/jobs/${id}`),

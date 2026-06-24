@@ -361,6 +361,8 @@ function ProcessSection({
   const [job, setJob] = useState<Job | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
+  const [captionStyle, setCaptionStyle] = useState<"capcut" | "subtitles" | "none">("capcut");
+  const [faceTrack, setFaceTrack] = useState(true);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   async function start() {
@@ -370,7 +372,7 @@ function ProcessSection({
     setJob(null);
     setJobId(null);
     try {
-      const res = await api.createJob(url);
+      const res = await api.createJob(url, { captionStyle, faceTrack });
       setJobId(res.job_id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al iniciar");
@@ -408,24 +410,60 @@ function ProcessSection({
 
   return (
     <div className="space-y-5">
-      {/* URL input */}
-      <div className="glass grad-border rounded-2xl p-4 flex gap-3">
-        <div className="flex-1 relative">
-          <Play size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
-          <input
-            id="process-url-input"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && start()}
-            placeholder="https://youtu.be/..."
-            className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 transition"
-          />
+      {/* URL input + controls */}
+      <div className="glass grad-border rounded-2xl p-4 space-y-3">
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Play size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <input
+              id="process-url-input"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && start()}
+              placeholder="https://youtu.be/..."
+              className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 transition"
+            />
+          </div>
+          <button onClick={start} disabled={starting || !url.trim()}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.35)] hover:scale-105 active:scale-95">
+            {starting ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+            {starting ? "Procesando..." : "Generar clips"}
+          </button>
         </div>
-        <button onClick={start} disabled={starting || !url.trim()}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.35)] hover:scale-105 active:scale-95">
-          {starting ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
-          {starting ? "Procesando..." : "Generar clips"}
-        </button>
+
+        {/* Options row */}
+        <div className="flex items-center gap-4 flex-wrap pt-1 border-t border-white/[0.04]">
+          {/* Face tracking toggle */}
+          <button
+            onClick={() => setFaceTrack((v) => !v)}
+            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+              faceTrack
+                ? "bg-red-500/10 border-red-500/30 text-red-400"
+                : "bg-zinc-900/40 border-zinc-800 text-zinc-600"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${faceTrack ? "bg-red-500" : "bg-zinc-700"}`} />
+            Face tracking
+          </button>
+
+          {/* Caption style selector */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-zinc-600">Captions:</span>
+            {(["capcut", "subtitles", "none"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setCaptionStyle(s)}
+                className={`px-2.5 py-1 rounded-lg border transition-all ${
+                  captionStyle === s
+                    ? "bg-zinc-800 border-zinc-600 text-zinc-200"
+                    : "border-zinc-800 text-zinc-600 hover:text-zinc-400"
+                }`}
+              >
+                {s === "capcut" ? "CapCut" : s === "subtitles" ? "Subtítulos" : "Ninguno"}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {error && <p className="text-red-400/80 text-sm bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-3">{error}</p>}
