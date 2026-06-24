@@ -12,6 +12,13 @@ WORKDIR /app
 COPY requirements-prod.txt .
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
+# Download OpenCV DNN face detector model at build time (~10MB)
+RUN mkdir -p /tmp/cv_face && \
+    curl -fsSL "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt" \
+         -o /tmp/cv_face/deploy.prototxt && \
+    curl -fsSL "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel" \
+         -o /tmp/cv_face/res10_300x300_ssd_iter_140000.caffemodel
+
 COPY . .
 
 RUN mkdir -p output tmp credentials
