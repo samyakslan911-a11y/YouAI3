@@ -605,7 +605,7 @@ function ProcessSection({
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [captionStyle, setCaptionStyle] = useState<"capcut" | "subtitles" | "none">("capcut");
+  const [captionStyle, setCaptionStyle] = useState<"capcut" | "karaoke" | "subtitles" | "none">("capcut");
   const [faceTrack, setFaceTrack] = useState(true);
   const logsRef = useRef<HTMLDivElement>(null);
 
@@ -736,10 +736,10 @@ function ProcessSection({
           </button>
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-zinc-600">Captions:</span>
-            {(["capcut", "subtitles", "none"] as const).map(s => (
+            {(["capcut", "karaoke", "subtitles", "none"] as const).map(s => (
               <button key={s} onClick={() => setCaptionStyle(s)}
                 className={`px-2.5 py-1 rounded-lg border transition-all ${captionStyle === s ? "bg-zinc-800 border-zinc-600 text-zinc-200" : "border-zinc-800 text-zinc-600 hover:text-zinc-400"}`}>
-                {s === "capcut" ? "CapCut" : s === "subtitles" ? "Subtítulos" : "Ninguno"}
+                {s === "capcut" ? "CapCut" : s === "karaoke" ? "Karaoke" : s === "subtitles" ? "Subtítulos" : "Ninguno"}
               </button>
             ))}
           </div>

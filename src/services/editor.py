@@ -12,7 +12,7 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 TARGET_W, TARGET_H = 1080, 1920  # 9:16 vertical
-CaptionStyle = Literal["capcut", "subtitles", "none"]
+CaptionStyle = Literal["capcut", "karaoke", "subtitles", "none"]
 
 
 def _slugify(text: str) -> str:
@@ -207,6 +207,83 @@ def _build_srt(word_events: list[dict], style: CaptionStyle) -> Path | None:
     return srt_file
 
 
+def _ass_header(style: CaptionStyle) -> str:
+    if style == "capcut":
+        return (
+            "[Script Info]\n"
+            "ScriptType: v4.00+\n"
+            f"PlayResX: {TARGET_W}\n"
+            f"PlayResY: {TARGET_H}\n"
+            "WrapStyle: 0\n\n"
+            "[V4+ Styles]\n"
+            "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,"
+            "OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,"
+            "ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,"
+            "Alignment,MarginL,MarginR,MarginV,Encoding\n"
+            "Style: Default,Liberation Sans,88,"
+            "&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,"
+            "-1,0,0,0,100,100,0,0,1,4,1,5,60,60,200,1\n\n"
+            "[Events]\n"
+            "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"
+        )
+    # karaoke
+    return (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        f"PlayResX: {TARGET_W}\n"
+        f"PlayResY: {TARGET_H}\n"
+        "WrapStyle: 0\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,"
+        "OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,"
+        "ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,"
+        "Alignment,MarginL,MarginR,MarginV,Encoding\n"
+        "Style: Default,Liberation Sans,72,"
+        "&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,"
+        "-1,0,0,0,100,100,0,0,1,3,0,2,60,60,80,1\n\n"
+        "[Events]\n"
+        "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"
+    )
+
+
+def _ts_ass(s: float) -> str:
+    s = max(0.0, s)
+    h, rem = divmod(int(s), 3600)
+    m, sec = divmod(rem, 60)
+    cs = int((s - int(s)) * 100)
+    return f"{h}:{m:02d}:{sec:02d}.{cs:02d}"
+
+
+def _build_ass(word_events: list[dict], style: CaptionStyle) -> Path:
+    ass_file = Path(tempfile.gettempdir()) / f"captions_{id(word_events)}.ass"
+    lines = [_ass_header(style)]
+
+    if style == "capcut":
+        for ev in word_events:
+            tag = r"{\an5\fscx118\fscy118\fad(80,60)}"
+            text = tag + ev["word"].upper()
+            lines.append(
+                f"Dialogue: 0,{_ts_ass(ev['start'])},{_ts_ass(ev['end'])},"
+                f"Default,,0,0,0,,{text}"
+            )
+    else:  # karaoke — groups of 4
+        chunks = [word_events[i:i + 4] for i in range(0, len(word_events), 4)]
+        for chunk in chunks:
+            start = chunk[0]["start"]
+            end = chunk[-1]["end"]
+            text = "".join(
+                "{\\kf%d}%s " % (max(1, round((ev["end"] - ev["start"]) * 100)), ev["word"].upper())
+                for ev in chunk
+            ).rstrip()
+            lines.append(
+                f"Dialogue: 0,{_ts_ass(start)},{_ts_ass(end)},"
+                f"Default,,0,0,0,,{text}"
+            )
+
+    ass_file.write_text("\n".join(lines), encoding="utf-8")
+    return ass_file
+
+
 def _caption_force_style(style: CaptionStyle, font_path: str) -> str:
     # Use friendly font name for libass; fallback to Arial
     font_map = {
@@ -258,11 +335,13 @@ def cut_and_format(
     map_arg = "[out]"
 
     if srt_path and srt_path.exists():
-        font_path = _find_font()
-        force_style = _caption_force_style(caption_style, font_path)
-        # Use forward slashes; no drive-letter colon escaping needed on Linux (Railway)
         srt_str = str(srt_path).replace("\\", "/")
-        filter_complex += f";[out]subtitles={srt_str}:force_style='{force_style}'[final]"
+        if srt_path.suffix == ".ass":
+            filter_complex += f";[out]ass={srt_str}[final]"
+        else:
+            font_path = _find_font()
+            force_style = _caption_force_style(caption_style, font_path)
+            filter_complex += f";[out]subtitles={srt_str}:force_style='{force_style}'[final]"
         map_arg = "[final]"
 
     _ffmpeg([
@@ -314,7 +393,10 @@ def process_segment(
     srt_path: Path | None = None
     if caption_style != "none" and all_segments:
         word_events = _interpolate_word_timing(all_segments, start, end)
-        srt_path = _build_srt(word_events, caption_style)
+        if caption_style in ("capcut", "karaoke"):
+            srt_path = _build_ass(word_events, caption_style)
+        else:
+            srt_path = _build_srt(word_events, caption_style)
         if srt_path:
             log.info(f"  Captions ({caption_style}): {len(word_events)} palabras")
 
