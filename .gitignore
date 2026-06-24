@@ -1,0 +1,55 @@
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# Dependencias
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build outputs
+dist/
+build/
+out/
+*.egg-info/
+target/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.vscode/settings.json.local
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Tests
+coverage/
+.coverage
+.pytest_cache/
+.mypy_cache/
+
+# Misc
+*.tmp
+*.bak
+
+# Pipeline runtime dirs (ephemeral)
+output/
+tmp/
+
+# OAuth credentials (NUNCA al repo — usar YOUTUBE_TOKEN_JSON en Railway)
+credentials/
+
+# Clips y audio temporales
+*.mp4
+*.mp3
+*.wav

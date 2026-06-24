@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-dotenv>=1.2
+pydantic>=2.13
+requests>=2.34
+google-genai>=2.9
+google-auth>=2.55
+google-auth-oauthlib>=1.2
+yt-dlp>=2026.6
+anthropic>=0.111
+openai>=1.60
