@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -9,9 +10,14 @@ from pydantic import BaseModel
 
 app = FastAPI(title="YouAI3 API")
 
+# ALLOWED_ORIGINS env var lets Railway/Vercel restrict CORS without code changes.
+# Falls back to * for local development.
+_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+_origins = [o.strip() for o in _origins_env.split(",")] if _origins_env != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
