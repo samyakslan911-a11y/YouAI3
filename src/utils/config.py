@@ -14,12 +14,15 @@ def _dir(name: str, default: str) -> Path:
 TMP_DIR    = _dir("TMP_DIR", "tmp")
 OUTPUT_DIR = _dir("OUTPUT_DIR", "output")
 
-ANTHROPIC_API_KEY      = os.getenv("ANTHROPIC_API_KEY", "")
-OPENROUTER_API_KEY     = os.getenv("OPENROUTER_API_KEY", "")
-GOOGLE_API_KEY         = os.getenv("GOOGLE_API_KEY", "")
-YOUTUBE_API_KEY        = os.getenv("YOUTUBE_API_KEY", "") or GOOGLE_API_KEY
-GEMINI_MODEL           = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-WHISPER_MODEL          = os.getenv("WHISPER_MODEL", "base")
+def _key(name: str, fallback: str = "") -> str:
+    return os.getenv(name, fallback).strip()
+
+ANTHROPIC_API_KEY      = _key("ANTHROPIC_API_KEY")
+OPENROUTER_API_KEY     = _key("OPENROUTER_API_KEY")
+GOOGLE_API_KEY         = _key("GOOGLE_API_KEY")
+YOUTUBE_API_KEY        = _key("YOUTUBE_API_KEY") or GOOGLE_API_KEY
+GEMINI_MODEL           = _key("GEMINI_MODEL", "gemini-2.5-flash")
+WHISPER_MODEL          = _key("WHISPER_MODEL", "base")
 
 INSTAGRAM_USERNAME     = os.getenv("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD     = os.getenv("INSTAGRAM_PASSWORD", "")
