@@ -1,4 +1,6 @@
+import os
 import shutil
+import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -16,6 +18,21 @@ _YT_OPTS = {
     "no_warnings": True,
 }
 
+_cookies_file: str | None = None
+
+def _get_cookies_file() -> str | None:
+    global _cookies_file
+    if _cookies_file and Path(_cookies_file).exists():
+        return _cookies_file
+    cookies_content = os.getenv("YOUTUBE_COOKIES", "").strip()
+    if not cookies_content:
+        return None
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
+    tmp.write(cookies_content)
+    tmp.close()
+    _cookies_file = tmp.name
+    return _cookies_file
+
 
 def _is_url(source: str) -> bool:
     scheme = urlparse(source).scheme
@@ -29,7 +46,12 @@ def download(source: str) -> Path:
 
 
 def _download_url(url: str) -> Path:
-    with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+    base_opts: dict = {"quiet": True}
+    cookies = _get_cookies_file()
+    if cookies:
+        base_opts["cookiefile"] = cookies
+
+    with yt_dlp.YoutubeDL(base_opts) as ydl:
         info = ydl.extract_info(url, download=False)
     video_id = info.get("id", "video")
     out_path = TMP_DIR / f"{video_id}.mp4"
@@ -39,6 +61,8 @@ def _download_url(url: str) -> Path:
         return out_path
 
     opts = {**_YT_OPTS, "outtmpl": str(TMP_DIR / f"{video_id}.%(ext)s")}
+    if cookies:
+        opts["cookiefile"] = cookies
     log.info(f"Descargando: {info.get('title', url)}")
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.download([url])
