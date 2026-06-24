@@ -91,6 +91,8 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                     "filename": clip_path.name,
                     "title": seg.get("title", ""),
                     "hook": seg.get("hook", ""),
+                    "score": seg.get("score"),
+                    "virality_reason": seg.get("virality_reason", ""),
                     "start": seg.get("start"),
                     "end": seg.get("end"),
                 }
@@ -173,6 +175,8 @@ def list_clips():
                 saved = json.loads(sidecar.read_text(encoding="utf-8"))
                 meta["title"] = saved.get("title", "")
                 meta["hook"] = saved.get("hook", "")
+                meta["score"] = saved.get("score")
+                meta["virality_reason"] = saved.get("virality_reason", "")
             except Exception:
                 pass
         clips.append(meta)

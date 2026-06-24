@@ -21,6 +21,8 @@ Responde SOLO con un array JSON válido, sin markdown ni explicaciones:
     "end": <segundos float>,
     "title": "<título corto del clip>",
     "hook": "<caption gancho para redes sociales, máx 150 chars>",
+    "score": <entero 0-100 que representa el potencial viral>,
+    "virality_reason": "<una frase corta explicando por qué este momento es viral>",
     "platforms": ["tiktok", "instagram", "youtube"]
   }}
 ]
@@ -28,7 +30,11 @@ Responde SOLO con un array JSON válido, sin markdown ni explicaciones:
 Reglas:
 - Cada clip debe durar entre 15 y {max_seconds} segundos
 - Prioriza momentos con revelaciones, humor, consejos accionables o emociones fuertes
-- El hook debe incluir emojis relevantes y llamada a la acción"""
+- El hook debe incluir emojis relevantes y llamada a la acción
+- score 90-100: momento excepcional (revelación, emoción intensa, twist)
+- score 70-89: muy buen momento (consejo accionable, humor claro, opinión fuerte)
+- score 50-69: momento sólido (interesante pero predecible)
+- Ordena el array de mayor a menor score"""
 
 
 def _build_transcript_text(segments: list[dict]) -> str:

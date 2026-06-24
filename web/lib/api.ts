@@ -27,6 +27,8 @@ export type Clip = {
   modified?: number;
   title?: string;
   hook?: string;
+  score?: number;
+  virality_reason?: string;
 };
 
 export type Job = {

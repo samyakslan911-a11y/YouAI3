@@ -206,6 +206,24 @@ export default function App() {
   );
 }
 
+function ScoreBadge({ score, reason }: { score?: number; reason?: string }) {
+  if (score == null) return null;
+  const color = score >= 90 ? "text-green-400 bg-green-500/10 border-green-500/20"
+    : score >= 70 ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20"
+    : "text-zinc-400 bg-zinc-800 border-zinc-700";
+  return (
+    <div className={`flex items-center gap-1.5 border rounded-lg px-2 py-1 ${color}`} title={reason}>
+      <span className="text-xs font-bold tabular-nums">{score}</span>
+      <div className="flex gap-0.5">
+        {[...Array(5)].map((_, i) => (
+          <span key={i} className={`w-1 rounded-sm ${i < Math.round(score / 20) ? "opacity-100" : "opacity-20"}`}
+            style={{ height: `${6 + i * 2}px`, background: "currentColor" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SectionLabel({ Icon, label }: { Icon: React.ElementType; label: string }) {
   return (
     <div className="flex items-center gap-3 mb-8">
@@ -550,7 +568,10 @@ function ProcessSection({
                         </div>
                       </div>
                       <div className="p-3.5 space-y-2">
-                        <p className="text-xs font-semibold line-clamp-1 text-zinc-200">{c.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-semibold line-clamp-1 text-zinc-200">{c.title}</p>
+                          <ScoreBadge score={(c as any).score} reason={(c as any).virality_reason} />
+                        </div>
                         <p className="text-[11px] text-zinc-600 line-clamp-2 leading-relaxed">{c.hook}</p>
                         <a href={api.clipUrl(c.filename)} download={c.filename}
                           className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
@@ -607,7 +628,13 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
             </div>
           </div>
           <div className="p-3 space-y-1.5">
-            {c.title && <p className="text-xs font-semibold text-zinc-200 line-clamp-1">{c.title}</p>}
+            <div className="flex items-start justify-between gap-1.5">
+              {c.title && <p className="text-xs font-semibold text-zinc-200 line-clamp-1 flex-1">{c.title}</p>}
+              <ScoreBadge score={c.score} reason={c.virality_reason} />
+            </div>
+            {c.virality_reason && (
+              <p className="text-[10px] text-zinc-600 line-clamp-1 italic">{c.virality_reason}</p>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-600">{c.size_mb} MB</span>
               <a href={api.clipUrl(c.filename)} download={c.filename}
