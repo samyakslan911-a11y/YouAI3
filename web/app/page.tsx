@@ -5,7 +5,7 @@ import { api, type Video, type Job } from "@/lib/api";
 import {
   Search, Zap, Video as VideoIcon, BarChart2, TrendingUp,
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
-  ArrowRight, Sparkles, Radio, ChevronRight,
+  ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
 } from "lucide-react";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -203,6 +203,47 @@ export default function App() {
         </section>
       </div>
     </div>
+  );
+}
+
+function PublishButton({ filename }: { filename: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [url, setUrl] = useState("");
+  const [err, setErr] = useState("");
+
+  async function publish() {
+    setState("loading");
+    try {
+      const res = await api.publishClip(filename, "youtube");
+      setUrl(res.url);
+      setState("done");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Error al publicar");
+      setState("error");
+    }
+  }
+
+  if (state === "done") return (
+    <a href={url} target="_blank" rel="noreferrer"
+      className="flex items-center gap-1.5 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
+      <ExternalLink size={10} /> Ver en YouTube
+    </a>
+  );
+
+  if (state === "error") return (
+    <p className="text-[10px] text-red-400/80 line-clamp-2" title={err}>
+      {err.includes("Credenciales") ? "YouTube no configurado" : err.slice(0, 60)}
+    </p>
+  );
+
+  return (
+    <button onClick={publish} disabled={state === "loading"}
+      className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-red-600 disabled:opacity-40 text-zinc-400 hover:text-white border border-zinc-700 hover:border-red-500 px-3 py-1.5 rounded-xl transition-all w-fit font-medium group">
+      {state === "loading"
+        ? <Loader2 size={10} className="animate-spin" />
+        : <Upload size={10} className="group-hover:scale-110 transition-transform" />}
+      {state === "loading" ? "Publicando…" : "Publicar"}
+    </button>
   );
 }
 
@@ -633,10 +674,13 @@ function ProcessSection({
                               <ScoreBadge score={c.score} reason={c.virality_reason} />
                             </div>
                             <p className="text-[11px] text-zinc-600 line-clamp-2 leading-relaxed">{c.hook}</p>
-                            <a href={api.clipUrl(c.filename)} download={c.filename}
-                              className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
-                              <Download size={11} /> Descargar
-                            </a>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <a href={api.clipUrl(c.filename)} download={c.filename}
+                                className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors font-medium">
+                                <Download size={11} /> Descargar
+                              </a>
+                              <PublishButton filename={c.filename} />
+                            </div>
                           </div>
                         </motion.div>
                       ))}
@@ -697,12 +741,15 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
             {c.virality_reason && (
               <p className="text-[10px] text-zinc-600 line-clamp-1 italic">{c.virality_reason}</p>
             )}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs text-zinc-600">{c.size_mb} MB</span>
-              <a href={api.clipUrl(c.filename)} download={c.filename}
-                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
-                <Download size={11} /> Descargar
-              </a>
+              <div className="flex items-center gap-2">
+                <a href={api.clipUrl(c.filename)} download={c.filename}
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
+                  <Download size={11} /> Descargar
+                </a>
+                <PublishButton filename={c.filename} />
+              </div>
             </div>
           </div>
         </motion.div>

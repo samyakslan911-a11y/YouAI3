@@ -85,37 +85,56 @@ def publish_instagram(clip_path: Path, caption: str) -> PublisherResult:
 
 # ─── YouTube Shorts ───────────────────────────────────────────────────────────
 
-def publish_youtube(clip_path: Path, title: str, description: str, tags: list[str]) -> PublisherResult:
+def _load_youtube_creds():
+    """
+    Load OAuth2 credentials from env var JSON (Railway) or local file (dev).
+    YOUTUBE_OAUTH_TOKEN_JSON env var takes precedence over file path.
+    """
+    import os
+    import json
+    import tempfile
+    from google.oauth2.credentials import Credentials
+
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+    token_json = os.getenv("YOUTUBE_OAUTH_TOKEN_JSON", "").strip()
+    if token_json:
+        data = json.loads(token_json)
+        # google.oauth2.credentials.Credentials accepts from_authorized_user_info
+        return Credentials.from_authorized_user_info(data, SCOPES)
+
     creds_path = Path(YOUTUBE_CREDENTIALS)
     if not creds_path.exists():
-        return PublisherResult(
-            "youtube", False,
-            error=f"Credenciales OAuth no encontradas: {YOUTUBE_CREDENTIALS}. "
-                  "Corre `hermes setup` para configurar YouTube API."
+        raise FileNotFoundError(
+            "Credenciales de YouTube no configuradas. "
+            "Opciones:\n"
+            "• Local: corre `python scripts/setup_youtube.py` y genera credentials/youtube_oauth.json\n"
+            "• Railway: pega el contenido de ese JSON en la env var YOUTUBE_OAUTH_TOKEN_JSON"
         )
+    return Credentials.from_authorized_user_file(str(creds_path), SCOPES)
+
+
+def publish_youtube(clip_path: Path, title: str, description: str, tags: list[str]) -> PublisherResult:
     try:
-        from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaFileUpload
+        from google.auth.transport.requests import Request
 
-        SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+        creds = _load_youtube_creds()
 
-        if creds_path.suffix == ".json" and "client_id" in creds_path.read_text():
-            flow = InstalledAppFlow.from_client_secrets_file(str(creds_path), SCOPES)
-            creds = flow.run_local_server(port=0)
-        else:
-            creds = Credentials.from_authorized_user_file(str(creds_path), SCOPES)
+        # Refresh token if expired
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
 
         yt = build("youtube", "v3", credentials=creds)
         body = {
             "snippet": {
                 "title": title[:100],
-                "description": description,
-                "tags": tags,
+                "description": description[:5000],
+                "tags": tags[:15],
                 "categoryId": "22",
             },
-            "status": {"privacyStatus": "public"},
+            "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
         }
         media = MediaFileUpload(str(clip_path), mimetype="video/mp4", resumable=True)
         request = yt.videos().insert(part="snippet,status", body=body, media_body=media)

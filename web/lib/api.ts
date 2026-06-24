@@ -76,5 +76,12 @@ export const api = {
 
   clipUrl: (filename: string) => `${BASE}/api/clips/${filename}`,
 
+  publishClip: (filename: string, platform = "youtube") =>
+    apiFetch<{ platform: string; url: string }>(`/api/clips/${encodeURIComponent(filename)}/publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform }),
+    }),
+
   analytics: (days = 28) => apiFetch<{ report: Record<string, unknown>[] }>(`/api/analytics?days=${days}`),
 };

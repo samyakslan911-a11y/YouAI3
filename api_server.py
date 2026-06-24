@@ -203,6 +203,54 @@ def serve_clip(filename: str):
     return FileResponse(path, media_type="video/mp4")
 
 
+class PublishRequest(BaseModel):
+    platform: str = "youtube"
+    title: str = ""
+    description: str = ""
+    tags: List[str] = []
+
+
+@app.post("/api/clips/{filename}/publish")
+def publish_clip(filename: str, req: PublishRequest):
+    path = OUTPUT_DIR / filename
+    if not path.exists() or not path.name.endswith(".mp4"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    title, description, tags = req.title, req.description, req.tags
+    sidecar = path.with_suffix(".json")
+    if sidecar.exists():
+        try:
+            meta = json.loads(sidecar.read_text(encoding="utf-8"))
+            if not title:
+                title = meta.get("title", path.stem)
+            if not description:
+                description = meta.get("hook", "")
+            if not tags:
+                hook = meta.get("hook", "")
+                tags = [w.strip("#") for w in hook.split() if w.startswith("#")]
+        except Exception:
+            pass
+
+    if not title:
+        title = path.stem
+
+    from src.services.publisher import publish_youtube, publish_tiktok, publish_instagram
+
+    if req.platform == "youtube":
+        result = publish_youtube(path, title, description, tags)
+    elif req.platform == "tiktok":
+        result = publish_tiktok(path, title, tags)
+    elif req.platform == "instagram":
+        result = publish_instagram(path, description or title)
+    else:
+        raise HTTPException(status_code=422, detail=f"Plataforma desconocida: {req.platform}")
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return {"platform": result.platform, "url": result.url}
+
+
 @app.get("/api/analytics")
 def analytics(days: int = 28):
     from src.services.analytics import get_report
