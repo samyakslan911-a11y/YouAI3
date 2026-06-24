@@ -6,6 +6,7 @@ import {
   Search, Zap, Video as VideoIcon, BarChart2, TrendingUp,
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
   ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
+  CalendarClock, CheckCircle2, XCircle, Trash2,
 } from "lucide-react";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -197,11 +198,163 @@ export default function App() {
 
         <WaveDivider />
 
+        <section id="schedule" className="scroll-mt-20">
+          <SectionLabel Icon={CalendarClock} label="Programados" />
+          <ScheduleSection />
+        </section>
+
+        <WaveDivider />
+
         <section id="analytics" className="scroll-mt-20">
           <SectionLabel Icon={BarChart2} label="Analytics" />
           <AnalyticsSection />
         </section>
       </div>
+    </div>
+  );
+}
+
+type ScheduledJob = {
+  id: string; filename: string; platform: string;
+  publish_at: string; status: string; result_url: string; error: string;
+};
+
+function ScheduleSection() {
+  const [jobs, setJobs] = useState<ScheduledJob[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    try { setJobs(await api.listSchedule()); } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  async function cancel(id: string) {
+    try { await api.cancelSchedule(id); load(); } catch { /* ignore */ }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  // poll pending/running jobs
+  useEffect(() => {
+    if (!jobs.some(j => j.status === "pending" || j.status === "running")) return;
+    const iv = setInterval(load, 10000);
+    return () => clearInterval(iv);
+  }, [jobs.map(j => j.id + j.status).join(",")]);
+
+  function fmtDate(iso: string) {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "short", timeStyle: "short",
+      }).format(new Date(iso));
+    } catch { return iso; }
+  }
+
+  if (loading) return <div className="shimmer h-20 rounded-2xl" />;
+
+  if (!jobs.length) return (
+    <div className="glass rounded-2xl py-14 text-center border-dashed">
+      <CalendarClock size={32} className="mx-auto mb-3 text-zinc-700" />
+      <p className="text-zinc-500 text-sm">Sin publicaciones programadas</p>
+      <p className="text-zinc-700 text-xs mt-1">Usa el botón "Programar" en cualquier clip</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      {jobs.map(j => (
+        <motion.div key={j.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-xl px-4 py-3 flex items-center gap-4">
+          {/* status icon */}
+          {j.status === "done"
+            ? <CheckCircle2 size={16} className="text-green-400 shrink-0" />
+            : j.status === "error"
+            ? <XCircle size={16} className="text-red-400 shrink-0" />
+            : j.status === "running"
+            ? <Loader2 size={16} className="text-yellow-400 animate-spin shrink-0" />
+            : j.status === "cancelled"
+            ? <XCircle size={16} className="text-zinc-600 shrink-0" />
+            : <Clock size={16} className="text-zinc-500 shrink-0" />}
+
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-zinc-200 truncate">{j.filename.replace(/_final\.mp4$/, "").replace(/_/g, " ")}</p>
+            <p className="text-[10px] text-zinc-600">
+              {j.status === "done"
+                ? <a href={j.result_url} target="_blank" rel="noreferrer" className="text-green-400 hover:underline">{j.result_url}</a>
+                : j.status === "error" ? <span className="text-red-400/80">{j.error.slice(0, 80)}</span>
+                : j.status === "cancelled" ? "Cancelado"
+                : `Programado: ${fmtDate(j.publish_at)}`}
+            </p>
+          </div>
+
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${
+            j.status === "done" ? "bg-green-500/10 border-green-500/20 text-green-400" :
+            j.status === "error" ? "bg-red-500/10 border-red-500/20 text-red-400" :
+            j.status === "running" ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+            j.status === "cancelled" ? "bg-zinc-800 border-zinc-700 text-zinc-600" :
+            "bg-zinc-800 border-zinc-700 text-zinc-400"
+          }`}>
+            {j.status}
+          </span>
+
+          {j.status === "pending" && (
+            <button onClick={() => cancel(j.id)} className="text-zinc-700 hover:text-red-400 transition-colors">
+              <Trash2 size={13} />
+            </button>
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function ScheduleButton({ filename }: { filename: string }) {
+  const [open, setOpen] = useState(false);
+  const [dt, setDt] = useState("");
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  // default to tomorrow same time
+  function openPicker() {
+    const d = new Date(Date.now() + 24 * 3600 * 1000);
+    d.setSeconds(0, 0);
+    setDt(d.toISOString().slice(0, 16));
+    setState("idle");
+    setMsg("");
+    setOpen(true);
+  }
+
+  async function submit() {
+    if (!dt) return;
+    setState("loading");
+    try {
+      await api.scheduleClip(filename, dt + ":00");
+      setState("done");
+      setMsg("Programado");
+      setTimeout(() => setOpen(false), 1500);
+    } catch (e: unknown) {
+      setState("error");
+      setMsg(e instanceof Error ? e.message.slice(0, 60) : "Error");
+    }
+  }
+
+  if (!open) return (
+    <button onClick={openPicker}
+      className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-300 transition-colors">
+      <Clock size={10} /> Programar
+    </button>
+  );
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <input type="datetime-local" value={dt} onChange={e => setDt(e.target.value)}
+        className="text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-1 focus:ring-red-500/40" />
+      <button onClick={submit} disabled={state === "loading" || !dt}
+        className="flex items-center gap-1 text-xs bg-red-600/80 hover:bg-red-600 disabled:opacity-40 text-white px-2.5 py-1 rounded-lg transition-colors">
+        {state === "loading" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
+        {state === "done" ? msg : state === "error" ? msg : "OK"}
+      </button>
+      <button onClick={() => setOpen(false)} className="text-zinc-600 hover:text-zinc-400 text-xs px-1">×</button>
     </div>
   );
 }
@@ -761,6 +914,7 @@ function ClipCard({ clip: c }: { clip: import("../lib/api").Clip }) {
             )}
             <PublishButton filename={c.filename} />
           </div>
+          <ScheduleButton filename={c.filename} />
         </div>
       </div>
     </motion.div>

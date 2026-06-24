@@ -82,6 +82,19 @@ export const api = {
   regenThumbnail: (filename: string) =>
     apiFetch<{ thumbnail: string }>(`/api/clips/${encodeURIComponent(filename)}/thumbnail`, { method: "POST" }),
 
+  scheduleClip: (filename: string, publishAt: string, platform = "youtube") =>
+    apiFetch<{ id: string; filename: string; publish_at: string; status: string }>(`/api/clips/${encodeURIComponent(filename)}/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publish_at: publishAt, platform }),
+    }),
+
+  listSchedule: () =>
+    apiFetch<{ id: string; filename: string; platform: string; publish_at: string; status: string; result_url: string; error: string }[]>("/api/schedule"),
+
+  cancelSchedule: (id: string) =>
+    apiFetch<{ cancelled: string }>(`/api/schedule/${id}`, { method: "DELETE" }),
+
   publishClip: (filename: string, platform = "youtube") =>
     apiFetch<{ platform: string; url: string }>(`/api/clips/${encodeURIComponent(filename)}/publish`, {
       method: "POST",

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from src.services import job_store
+from src.services import job_store, scheduler
 
 app = FastAPI(title="YouAI3 API")
 
@@ -29,6 +29,8 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 @app.on_event("startup")
 def startup():
     job_store.init()
+    scheduler.init()
+    scheduler.start_background()
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -299,6 +301,48 @@ def publish_clip(filename: str, req: PublishRequest):
         raise HTTPException(status_code=500, detail=result.error)
 
     return {"platform": result.platform, "url": result.url}
+
+
+class ScheduleRequest(BaseModel):
+    publish_at: str        # ISO-8601 local or UTC, e.g. "2026-06-25T15:30:00"
+    platform: str = "youtube"
+
+
+@app.post("/api/clips/{filename}/schedule")
+def schedule_clip(filename: str, req: ScheduleRequest):
+    path = OUTPUT_DIR / filename
+    if not path.exists() or not path.name.endswith(".mp4"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    from datetime import datetime, timezone
+    try:
+        # Accept both naive and aware ISO strings
+        dt_str = req.publish_at.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(dt_str)
+        except ValueError:
+            dt = datetime.fromisoformat(req.publish_at)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt <= datetime.now(timezone.utc):
+            raise HTTPException(status_code=422, detail="La fecha debe ser en el futuro")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Fecha inválida: {e}")
+    job = scheduler.schedule(filename, dt, req.platform)
+    return job
+
+
+@app.get("/api/schedule")
+def list_schedule():
+    return scheduler.list_all()
+
+
+@app.delete("/api/schedule/{sid}")
+def cancel_schedule(sid: str):
+    if not scheduler.cancel(sid):
+        raise HTTPException(status_code=404, detail="No encontrado o ya ejecutado")
+    return {"cancelled": sid}
 
 
 @app.get("/api/analytics")
