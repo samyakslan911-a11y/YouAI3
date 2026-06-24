@@ -111,7 +111,7 @@ export default function App() {
         <div className="absolute inset-0 opacity-[0.025] pointer-events-none"
           style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "64px 64px" }} />
 
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}>
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} className="w-full max-w-2xl">
           <div className="inline-flex items-center gap-2 glass border border-red-500/20 text-red-400 text-xs px-4 py-2 rounded-full mb-8">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
             <Sparkles size={11} />
@@ -123,24 +123,47 @@ export default function App() {
             <span className="grad-text">clips virales</span>
           </h1>
 
-          <p className="text-zinc-400 max-w-lg mx-auto mb-10 text-lg leading-relaxed">
-            Encuentra outliers, transcribe con IA, identifica momentos virales y genera Shorts en 9:16 listos para publicar.
+          <p className="text-zinc-400 max-w-lg mx-auto mb-8 text-lg leading-relaxed">
+            Pega un link de YouTube, la IA encuentra los momentos virales y genera Shorts en 9:16 listos para publicar.
           </p>
 
-          <div className="flex items-center justify-center gap-4 flex-wrap">
+          {/* hero URL input */}
+          <div className="glass grad-border rounded-2xl p-2 flex gap-2 mb-6 text-left">
+            <div className="flex-1 relative">
+              <Play size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+              <input
+                value={processUrl}
+                onChange={(e) => setProcessUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && processUrl.trim()) go("process"); }}
+                placeholder="https://youtu.be/... · Pega el link y genera clips"
+                className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/40 transition"
+              />
+            </div>
+            <button
+              onClick={() => { if (processUrl.trim()) go("process"); }}
+              disabled={!processUrl.trim()}
+              className="group flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-[0_0_25px_rgba(239,68,68,0.4)] whitespace-nowrap"
+            >
+              Generar clips
+              <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => go("discover")}
-              className="group flex items-center gap-2.5 bg-red-600 hover:bg-red-500 text-white font-semibold px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]"
+              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
             >
-              Comenzar ahora
-              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              <Search size={13} className="text-red-400" />
+              Buscar videos outlier
             </button>
+            <span className="text-zinc-800">·</span>
             <button
-              onClick={() => go("process")}
-              className="flex items-center gap-2 glass glass-hover text-zinc-300 px-6 py-3.5 rounded-2xl transition-all text-sm font-medium"
+              onClick={() => go("clips")}
+              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
             >
-              <Play size={14} className="text-red-400" />
-              Procesar video
+              <VideoIcon size={13} className="text-zinc-500" />
+              Ver mis clips
             </button>
           </div>
         </motion.div>
@@ -361,7 +384,7 @@ function ProcessSection({
   const [job, setJob] = useState<Job | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
 
   async function start() {
     if (!url.trim()) return;
@@ -384,7 +407,9 @@ function ProcessSection({
       try {
         const j = await api.getJob(jobId);
         setJob(j);
-        logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (logsContainerRef.current) {
+          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+        }
         if (j.status === "done" || j.status === "error") {
           clearInterval(iv);
           setStarting(false);
@@ -478,7 +503,7 @@ function ProcessSection({
                 <span className="w-3 h-3 rounded-full bg-green-500/60" />
                 <span className="text-xs text-zinc-600 ml-2 font-mono">pipeline.log</span>
               </div>
-              <div className="p-4 h-40 overflow-y-auto font-mono text-xs space-y-1.5">
+              <div ref={logsContainerRef} className="p-4 h-40 overflow-y-auto font-mono text-xs space-y-1.5">
                 {job.logs.map((l, i) => (
                   <p key={i} className={`flex gap-2 ${
                     l.toLowerCase().includes("error") || l.toLowerCase().includes("omitido") ? "text-red-400" :
@@ -491,7 +516,6 @@ function ProcessSection({
                   </p>
                 ))}
                 {isRunning && <p className="text-zinc-500 cursor" />}
-                <div ref={logsEndRef} />
               </div>
             </div>
 
