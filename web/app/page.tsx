@@ -368,6 +368,37 @@ function DiscoverSection({ onSelectVideo }: { onSelectVideo: (url: string) => vo
 }
 
 // ── Process ───────────────────────────────────────────────────────────────────
+type ActiveJob = {
+  id: string;
+  url: string;
+  status: string;
+  logs: string[];
+  clips: { filename: string; title: string; hook: string; score?: number; virality_reason?: string }[];
+  error?: string;
+};
+
+function urlLabel(u: string) {
+  try {
+    const parts = new URL(u).hostname.replace("www.", "") + new URL(u).pathname;
+    return parts.length > 40 ? parts.slice(0, 40) + "…" : parts;
+  } catch { return u.length > 50 ? u.slice(0, 50) + "…" : u; }
+}
+
+function JobStatusDot({ status }: { status: string }) {
+  if (status === "done") return <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />;
+  if (status === "error") return <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />;
+  if (status === "running") return <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0 animate-pulse" />;
+  return <span className="w-2 h-2 rounded-full bg-zinc-700 shrink-0" />;
+}
+
+function stepFromLogs(logs: string[]) {
+  if (logs.some(l => l.includes("Clip listo"))) return 3;
+  if (logs.some(l => l.includes("virales"))) return 2;
+  if (logs.some(l => l.includes("Transcripción"))) return 1;
+  if (logs.some(l => l.includes("Descargando") || l.includes("cache"))) return 0;
+  return -1;
+}
+
 function ProcessSection({
   url, setUrl, onJobDone,
 }: {
@@ -375,108 +406,145 @@ function ProcessSection({
   setUrl: (u: string) => void;
   onJobDone: () => void;
 }) {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [job, setJob] = useState<Job | null>(null);
-  const [starting, setStarting] = useState(false);
+  const [pendingUrls, setPendingUrls] = useState<string[]>([]);
+  const [jobs, setJobs] = useState<ActiveJob[]>([]);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [captionStyle, setCaptionStyle] = useState<"capcut" | "subtitles" | "none">("capcut");
   const [faceTrack, setFaceTrack] = useState(true);
-  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const logsRef = useRef<HTMLDivElement>(null);
 
-  async function start() {
-    if (!url.trim()) return;
-    setStarting(true);
+  function addUrl() {
+    const u = url.trim();
+    if (!u || pendingUrls.includes(u)) return;
+    setPendingUrls(prev => [...prev, u]);
+    setUrl("");
+  }
+
+  function removeUrl(u: string) {
+    setPendingUrls(prev => prev.filter(x => x !== u));
+  }
+
+  async function submitUrls(urls: string[]) {
+    if (!urls.length) return;
+    setSubmitting(true);
     setError("");
-    setJob(null);
-    setJobId(null);
     try {
-      const res = await api.createJob(url, { captionStyle, faceTrack });
-      setJobId(res.job_id);
+      const res = await api.createQueue(urls, { captionStyle, faceTrack });
+      const newJobs: ActiveJob[] = res.job_ids.map((id, i) => ({
+        id, url: urls[i], status: "queued", logs: [], clips: [],
+      }));
+      setJobs(prev => [...newJobs, ...prev]);
+      setActiveJobId(res.job_ids[0]);
+      setPendingUrls([]);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al iniciar");
-      setStarting(false);
+      setError(e instanceof Error ? e.message : "Error al iniciar la cola");
+      setSubmitting(false);
     }
   }
 
+  function processQueue() { submitUrls(pendingUrls); }
+
+  // poll all active jobs
   useEffect(() => {
-    if (!jobId) return;
+    const activeIds = jobs.filter(j => j.status === "queued" || j.status === "running").map(j => j.id);
+    if (!activeIds.length) {
+      setSubmitting(false);
+      return;
+    }
     const iv = setInterval(async () => {
-      try {
-        const j = await api.getJob(jobId);
-        setJob(j);
-        if (logsContainerRef.current) {
-          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
-        }
-        if (j.status === "done" || j.status === "error") {
-          clearInterval(iv);
-          setStarting(false);
-          if (j.status === "done") onJobDone();
-        }
-      } catch { clearInterval(iv); setStarting(false); }
+      const updates = await Promise.allSettled(activeIds.map(id => api.getJob(id)));
+      let anyDone = false;
+      setJobs(prev => prev.map(j => {
+        const idx = activeIds.indexOf(j.id);
+        if (idx < 0) return j;
+        const res = updates[idx];
+        if (res.status !== "fulfilled") return j;
+        const updated = { ...j, ...res.value };
+        if (updated.status === "done") anyDone = true;
+        return updated;
+      }));
+      if (logsRef.current) logsRef.current.scrollTop = logsRef.current.scrollHeight;
+      if (anyDone) onJobDone();
     }, 1500);
     return () => clearInterval(iv);
-  }, [jobId]);
+  }, [jobs.map(j => j.id + j.status).join(",")]);
 
-  const isRunning = job?.status === "running" || job?.status === "queued";
-
+  const activeJob = jobs.find(j => j.id === activeJobId) ?? null;
   const steps = ["Descargando", "Transcribiendo", "Analizando", "Cortando clips"];
-  const currentStep = !job ? -1 :
-    job.logs.some(l => l.includes("Clip listo")) ? 3 :
-    job.logs.some(l => l.includes("virales")) ? 2 :
-    job.logs.some(l => l.includes("Transcripción")) ? 1 :
-    job.logs.some(l => l.includes("Descargando") || l.includes("cache")) ? 0 : -1;
+  const currentStep = activeJob ? stepFromLogs(activeJob.logs) : -1;
+  const hasRunning = jobs.some(j => j.status === "queued" || j.status === "running");
 
   return (
     <div className="space-y-5">
-      {/* URL input + controls */}
+      {/* URL input + queue builder */}
       <div className="glass grad-border rounded-2xl p-4 space-y-3">
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <div className="flex-1 relative">
             <Play size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
             <input
               id="process-url-input"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && start()}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (pendingUrls.length === 0) { const u = url.trim(); setUrl(""); submitUrls([u]); }
+                else addUrl();
+              }}
               placeholder="https://youtu.be/..."
               className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 transition"
             />
           </div>
-          <button onClick={start} disabled={starting || !url.trim()}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.35)] hover:scale-105 active:scale-95">
-            {starting ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
-            {starting ? "Procesando..." : "Generar clips"}
+          <button onClick={addUrl} disabled={!url.trim()}
+            className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 rounded-xl px-4 py-2.5 text-sm font-medium transition-all">
+            + Añadir
           </button>
+          {pendingUrls.length > 0 && (
+            <button onClick={processQueue} disabled={submitting}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.35)] hover:scale-105 active:scale-95">
+              {submitting ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+              Procesar {pendingUrls.length > 1 ? `${pendingUrls.length} videos` : "video"}
+            </button>
+          )}
+          {pendingUrls.length === 0 && url.trim() && (
+            <button onClick={() => { const u = url.trim(); setUrl(""); submitUrls([u]); }}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.35)] hover:scale-105 active:scale-95">
+              <Zap size={13} /> Generar clips
+            </button>
+          )}
         </div>
 
-        {/* Options row */}
+        {/* pending queue list */}
+        <AnimatePresence>
+          {pendingUrls.length > 0 && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+              className="space-y-1.5 border-t border-white/[0.05] pt-3">
+              <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">Cola — {pendingUrls.length} URL{pendingUrls.length > 1 ? "s" : ""}</p>
+              {pendingUrls.map((u, i) => (
+                <motion.div key={u} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-2 bg-zinc-900/50 rounded-lg px-3 py-2">
+                  <span className="text-zinc-700 text-xs font-mono w-4 shrink-0">{i + 1}</span>
+                  <span className="text-xs text-zinc-400 flex-1 truncate">{urlLabel(u)}</span>
+                  <button onClick={() => removeUrl(u)} className="text-zinc-700 hover:text-zinc-400 transition-colors text-xs px-1">×</button>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* options row */}
         <div className="flex items-center gap-4 flex-wrap pt-1 border-t border-white/[0.04]">
-          {/* Face tracking toggle */}
-          <button
-            onClick={() => setFaceTrack((v) => !v)}
-            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${
-              faceTrack
-                ? "bg-red-500/10 border-red-500/30 text-red-400"
-                : "bg-zinc-900/40 border-zinc-800 text-zinc-600"
-            }`}
-          >
+          <button onClick={() => setFaceTrack(v => !v)}
+            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${faceTrack ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-zinc-900/40 border-zinc-800 text-zinc-600"}`}>
             <span className={`w-2 h-2 rounded-full ${faceTrack ? "bg-red-500" : "bg-zinc-700"}`} />
             Face tracking
           </button>
-
-          {/* Caption style selector */}
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-zinc-600">Captions:</span>
-            {(["capcut", "subtitles", "none"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setCaptionStyle(s)}
-                className={`px-2.5 py-1 rounded-lg border transition-all ${
-                  captionStyle === s
-                    ? "bg-zinc-800 border-zinc-600 text-zinc-200"
-                    : "border-zinc-800 text-zinc-600 hover:text-zinc-400"
-                }`}
-              >
+            {(["capcut", "subtitles", "none"] as const).map(s => (
+              <button key={s} onClick={() => setCaptionStyle(s)}
+                className={`px-2.5 py-1 rounded-lg border transition-all ${captionStyle === s ? "bg-zinc-800 border-zinc-600 text-zinc-200" : "border-zinc-800 text-zinc-600 hover:text-zinc-400"}`}>
                 {s === "capcut" ? "CapCut" : s === "subtitles" ? "Subtítulos" : "Ninguno"}
               </button>
             ))}
@@ -486,102 +554,96 @@ function ProcessSection({
 
       {error && <p className="text-red-400/80 text-sm bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-3">{error}</p>}
 
+      {/* active jobs list */}
       <AnimatePresence>
-        {job && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+        {jobs.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
 
-            {/* step indicator */}
-            <div className="glass rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                {steps.map((s, i) => (
-                  <div key={s} className="flex items-center gap-2">
-                    <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
-                      i < currentStep ? "text-green-400" :
-                      i === currentStep ? "text-yellow-400" : "text-zinc-700"
-                    }`}>
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        i < currentStep ? "bg-green-500/20 border border-green-500/40" :
-                        i === currentStep ? "bg-yellow-500/20 border border-yellow-500/40 animate-pulse" :
-                        "bg-zinc-900 border border-zinc-800"
-                      }`}>
-                        {i < currentStep ? "✓" : i + 1}
-                      </span>
-                      {s}
-                    </div>
-                    {i < steps.length - 1 && (
-                      <div className={`flex-1 h-px mx-1 w-8 transition-colors ${i < currentStep ? "bg-green-500/40" : "bg-zinc-800"}`} />
-                    )}
+            {/* jobs switcher */}
+            {jobs.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {jobs.map(j => (
+                  <button key={j.id} onClick={() => setActiveJobId(j.id)}
+                    className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${activeJobId === j.id ? "bg-zinc-800 border-zinc-600 text-zinc-200" : "border-zinc-800 text-zinc-600 hover:text-zinc-400"}`}>
+                    <JobStatusDot status={j.status} />
+                    <span className="truncate max-w-[120px]">{urlLabel(j.url)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeJob && (
+              <>
+                {/* step indicator */}
+                <div className="glass rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    {steps.map((s, i) => (
+                      <div key={s} className="flex items-center gap-2">
+                        <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${i < currentStep ? "text-green-400" : i === currentStep ? "text-yellow-400" : "text-zinc-700"}`}>
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${i < currentStep ? "bg-green-500/20 border border-green-500/40" : i === currentStep ? "bg-yellow-500/20 border border-yellow-500/40 animate-pulse" : "bg-zinc-900 border border-zinc-800"}`}>
+                            {i < currentStep ? "✓" : i + 1}
+                          </span>
+                          {s}
+                        </div>
+                        {i < steps.length - 1 && <div className={`flex-1 h-px mx-1 w-8 transition-colors ${i < currentStep ? "bg-green-500/40" : "bg-zinc-800"}`} />}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-
-              {/* status row */}
-              <div className={`flex items-center gap-2 text-sm ${
-                isRunning ? "text-yellow-400" :
-                job.status === "done" ? "text-green-400" : "text-red-400"
-              }`}>
-                {isRunning && <Radio size={13} className="animate-pulse" />}
-                {job.status === "done" && "✓ "}
-                {isRunning ? `Procesando...` :
-                 job.status === "done" ? `${job.clips.length} clips generados` :
-                 job.error ?? "Error"}
-              </div>
-            </div>
-
-            {/* terminal log */}
-            <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/60 bg-zinc-900/30">
-                <span className="w-3 h-3 rounded-full bg-red-500/60" />
-                <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
-                <span className="w-3 h-3 rounded-full bg-green-500/60" />
-                <span className="text-xs text-zinc-600 ml-2 font-mono">pipeline.log</span>
-              </div>
-              <div ref={logsContainerRef} className="p-4 h-40 overflow-y-auto font-mono text-xs space-y-1.5">
-                {job.logs.map((l, i) => (
-                  <p key={i} className={`flex gap-2 ${
-                    l.toLowerCase().includes("error") || l.toLowerCase().includes("omitido") ? "text-red-400" :
-                    l.toLowerCase().includes("listo") || l.toLowerCase().includes("completado") || l.toLowerCase().includes("guardado") ? "text-green-400" :
-                    l.toLowerCase().includes("procesando clip") ? "text-yellow-400" :
-                    "text-zinc-500"
-                  }`}>
-                    <span className="text-zinc-700 shrink-0">›</span>
-                    <span>{l}</span>
-                  </p>
-                ))}
-                {isRunning && <p className="text-zinc-500 cursor" />}
-              </div>
-            </div>
-
-            {/* clips grid */}
-            {job.clips.length > 0 && (
-              <div>
-                <p className="text-xs text-zinc-600 uppercase tracking-widest font-medium mb-4">{job.clips.length} clips · listos para publicar</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {job.clips.map((c) => (
-                    <motion.div key={c.filename} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                      className="group bg-zinc-900 border border-zinc-800 hover:border-red-500/30 rounded-2xl overflow-hidden transition-all hover:shadow-[0_0_25px_rgba(239,68,68,0.1)]">
-                      <div className="relative bg-zinc-950">
-                        <video src={api.clipUrl(c.filename)} controls preload="metadata"
-                          className="w-full aspect-[9/16] object-cover" />
-                        <div className="absolute top-2 right-2">
-                          <span className="bg-black/70 backdrop-blur text-xs px-2 py-0.5 rounded-full text-zinc-300">9:16</span>
-                        </div>
-                      </div>
-                      <div className="p-3.5 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs font-semibold line-clamp-1 text-zinc-200">{c.title}</p>
-                          <ScoreBadge score={(c as any).score} reason={(c as any).virality_reason} />
-                        </div>
-                        <p className="text-[11px] text-zinc-600 line-clamp-2 leading-relaxed">{c.hook}</p>
-                        <a href={api.clipUrl(c.filename)} download={c.filename}
-                          className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
-                          <Download size={11} /> Descargar
-                        </a>
-                      </div>
-                    </motion.div>
-                  ))}
+                  <div className={`flex items-center gap-2 text-sm ${activeJob.status === "running" || activeJob.status === "queued" ? "text-yellow-400" : activeJob.status === "done" ? "text-green-400" : "text-red-400"}`}>
+                    {(activeJob.status === "running" || activeJob.status === "queued") && <Radio size={13} className="animate-pulse" />}
+                    {activeJob.status === "running" || activeJob.status === "queued" ? "Procesando..." :
+                     activeJob.status === "done" ? `✓ ${activeJob.clips.length} clips generados` :
+                     activeJob.error ?? "Error"}
+                  </div>
                 </div>
-              </div>
+
+                {/* terminal log */}
+                <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/60 bg-zinc-900/30">
+                    <span className="w-3 h-3 rounded-full bg-red-500/60" /><span className="w-3 h-3 rounded-full bg-yellow-500/60" /><span className="w-3 h-3 rounded-full bg-green-500/60" />
+                    <span className="text-xs text-zinc-600 ml-2 font-mono">{activeJob.id} · pipeline.log</span>
+                  </div>
+                  <div ref={logsRef} className="p-4 h-40 overflow-y-auto font-mono text-xs space-y-1.5">
+                    {activeJob.logs.map((l, i) => (
+                      <p key={i} className={`flex gap-2 ${l.toLowerCase().includes("error") || l.toLowerCase().includes("omitido") ? "text-red-400" : l.toLowerCase().includes("listo") || l.toLowerCase().includes("completado") ? "text-green-400" : l.toLowerCase().includes("procesando clip") ? "text-yellow-400" : "text-zinc-500"}`}>
+                        <span className="text-zinc-700 shrink-0">›</span><span>{l}</span>
+                      </p>
+                    ))}
+                    {(activeJob.status === "queued" || activeJob.status === "running") && <p className="text-zinc-500 animate-pulse">_</p>}
+                  </div>
+                </div>
+
+                {/* clips grid */}
+                {activeJob.clips.length > 0 && (
+                  <div>
+                    <p className="text-xs text-zinc-600 uppercase tracking-widest font-medium mb-4">{activeJob.clips.length} clips · listos para publicar</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {activeJob.clips.map((c) => (
+                        <motion.div key={c.filename} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                          className="group bg-zinc-900 border border-zinc-800 hover:border-red-500/30 rounded-2xl overflow-hidden transition-all hover:shadow-[0_0_25px_rgba(239,68,68,0.1)]">
+                          <div className="relative bg-zinc-950">
+                            <video src={api.clipUrl(c.filename)} controls preload="metadata" className="w-full aspect-[9/16] object-cover" />
+                            <div className="absolute top-2 right-2">
+                              <span className="bg-black/70 backdrop-blur text-xs px-2 py-0.5 rounded-full text-zinc-300">9:16</span>
+                            </div>
+                          </div>
+                          <div className="p-3.5 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold line-clamp-1 text-zinc-200">{c.title}</p>
+                              <ScoreBadge score={c.score} reason={c.virality_reason} />
+                            </div>
+                            <p className="text-[11px] text-zinc-600 line-clamp-2 leading-relaxed">{c.hook}</p>
+                            <a href={api.clipUrl(c.filename)} download={c.filename}
+                              className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
+                              <Download size={11} /> Descargar
+                            </a>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         )}
@@ -592,7 +654,7 @@ function ProcessSection({
 
 // ── Clips ─────────────────────────────────────────────────────────────────────
 function ClipsSection({ refreshKey }: { refreshKey: number }) {
-  const [clips, setClips] = useState<{ filename: string; size_mb: number; title?: string }[]>([]);
+  const [clips, setClips] = useState<import("../lib/api").Clip[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {

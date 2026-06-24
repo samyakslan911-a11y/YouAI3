@@ -2,16 +2,17 @@ import json
 import os
 import uuid
 from pathlib import Path
+from typing import List
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from src.services import job_store
+
 app = FastAPI(title="YouAI3 API")
 
-# ALLOWED_ORIGINS env var lets Railway/Vercel restrict CORS without code changes.
-# Falls back to * for local development.
 _origins_env = os.getenv("ALLOWED_ORIGINS", "*")
 _origins = [o.strip() for o in _origins_env.split(",")] if _origins_env != "*" else ["*"]
 
@@ -22,11 +23,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory job store (single-user, no persistence needed)
-_jobs: dict[str, dict] = {}
-
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+@app.on_event("startup")
+def startup():
+    job_store.init()
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -34,36 +36,32 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 class ProcessRequest(BaseModel):
     url: str
     dry_run: bool = False
-    caption_style: str = "capcut"   # "capcut" | "subtitles" | "none"
+    caption_style: str = "capcut"
     face_track: bool = True
 
 
-class ResearchRequest(BaseModel):
-    query: str
-    max_results: int = 10
-    min_ratio: float = 3.0
-    language: str = "es"
-    cc_only: bool = False
+class QueueRequest(BaseModel):
+    urls: List[str]
+    dry_run: bool = False
+    caption_style: str = "capcut"
+    face_track: bool = True
 
 
 # ── Background pipeline ───────────────────────────────────────────────────────
 
 def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "capcut", face_track: bool = True):
-    from src.core.pipeline import ContentPipeline
-    from src.services import editor
-
-    job = _jobs[job_id]
-    job["status"] = "running"
-    job["logs"] = []
+    from src.services import downloader, transcriber, analyzer, editor
 
     def log(msg: str):
-        job["logs"].append(msg)
+        job = job_store.get(job_id)
+        logs = job["logs"] + [msg]
+        job_store.update(job_id, logs=logs)
+
+    job_store.update(job_id, status="running", logs=[])
 
     try:
         log(f"Iniciando pipeline: {url}")
-        pipeline = ContentPipeline(dry_run=dry_run)
 
-        from src.services import downloader, transcriber, analyzer
         video_path = downloader.download(url)
         log(f"Video descargado: {video_path.name}")
 
@@ -96,22 +94,22 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                     "start": seg.get("start"),
                     "end": seg.get("end"),
                 }
-                # Write sidecar JSON so the gallery can show title/hook without a DB
                 sidecar = clip_path.with_suffix(".json")
                 sidecar.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-                clips.append(meta)
+                job = job_store.get(job_id)
+                job_store.update(job_id, clips=job["clips"] + [meta])
                 log(f"Clip {i+1} listo: {clip_path.name}")
             except Exception as e:
                 log(f"Clip {i+1} omitido: {e}")
 
-        job["status"] = "done"
-        job["clips"] = clips
-        log(f"Pipeline completado: {len(clips)} clips")
+        job = job_store.get(job_id)
+        job_store.update(job_id, status="done")
+        log(f"Pipeline completado: {len(job['clips'])} clips")
 
     except Exception as e:
-        job["status"] = "error"
-        job["error"] = str(e)
-        job["logs"].append(f"Error: {e}")
+        job_store.update(job_id, status="error", error=str(e))
+        job = job_store.get(job_id)
+        job_store.update(job_id, logs=job["logs"] + [f"Error: {e}"])
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -124,14 +122,28 @@ def health():
 @app.post("/api/jobs")
 def create_job(req: ProcessRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())[:8]
-    _jobs[job_id] = {"status": "queued", "logs": [], "clips": [], "error": ""}
+    job_store.create(job_id, req.url)
     background_tasks.add_task(_run_pipeline, job_id, req.url, req.dry_run, req.caption_style, req.face_track)
     return {"job_id": job_id}
 
 
+@app.post("/api/queue")
+def create_queue(req: QueueRequest, background_tasks: BackgroundTasks):
+    urls = [u.strip() for u in req.urls if u.strip()]
+    if not urls:
+        raise HTTPException(status_code=422, detail="No URLs provided")
+    job_ids = []
+    for url in urls:
+        job_id = str(uuid.uuid4())[:8]
+        job_store.create(job_id, url)
+        background_tasks.add_task(_run_pipeline, job_id, url, req.dry_run, req.caption_style, req.face_track)
+        job_ids.append(job_id)
+    return {"job_ids": job_ids}
+
+
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str):
-    job = _jobs.get(job_id)
+    job = job_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
@@ -139,7 +151,7 @@ def get_job(job_id: str):
 
 @app.get("/api/jobs")
 def list_jobs():
-    return [{"id": k, **v} for k, v in _jobs.items()]
+    return job_store.list_all()
 
 
 @app.get("/api/research")

@@ -56,6 +56,20 @@ export const api = {
       }),
     }),
 
+  createQueue: (urls: string[], opts?: { captionStyle?: string; faceTrack?: boolean }) =>
+    apiFetch<{ job_ids: string[] }>("/api/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        urls,
+        dry_run: false,
+        caption_style: opts?.captionStyle ?? "capcut",
+        face_track: opts?.faceTrack ?? true,
+      }),
+    }),
+
+  listJobs: () => apiFetch<{ id: string; url: string; status: string; clips: unknown[]; error: string }[]>("/api/jobs"),
+
   getJob: (id: string) => apiFetch<Job>(`/api/jobs/${id}`),
 
   listClips: () => apiFetch<{ clips: Clip[] }>("/api/clips"),
