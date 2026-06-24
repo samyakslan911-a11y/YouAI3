@@ -127,43 +127,20 @@ export default function App() {
             Pega un link de YouTube, la IA encuentra los momentos virales y genera Shorts en 9:16 listos para publicar.
           </p>
 
-          {/* hero URL input */}
-          <div className="glass grad-border rounded-2xl p-2 flex gap-2 mb-6 text-left">
-            <div className="flex-1 relative">
-              <Play size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
-              <input
-                value={processUrl}
-                onChange={(e) => setProcessUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && processUrl.trim()) go("process"); }}
-                placeholder="https://youtu.be/... · Pega el link y genera clips"
-                className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/40 transition"
-              />
-            </div>
-            <button
-              onClick={() => { if (processUrl.trim()) go("process"); }}
-              disabled={!processUrl.trim()}
-              className="group flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-[0_0_25px_rgba(239,68,68,0.4)] whitespace-nowrap"
-            >
-              Generar clips
-              <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-
           <div className="flex items-center justify-center gap-4">
             <button
-              onClick={() => go("discover")}
-              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+              onClick={() => go("process")}
+              className="group flex items-center gap-2.5 bg-red-600 hover:bg-red-500 text-white font-semibold px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]"
             >
-              <Search size={13} className="text-red-400" />
-              Buscar videos outlier
+              Generar clips
+              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
-            <span className="text-zinc-800">·</span>
             <button
-              onClick={() => go("clips")}
-              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+              onClick={() => go("discover")}
+              className="flex items-center gap-2 glass glass-hover text-zinc-300 px-6 py-3.5 rounded-2xl transition-all text-sm font-medium"
             >
-              <VideoIcon size={13} className="text-zinc-500" />
-              Ver mis clips
+              <Search size={14} className="text-red-400" />
+              Buscar outliers
             </button>
           </div>
         </motion.div>
