@@ -354,6 +354,17 @@ def analytics(days: int = 28):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/analytics/insights")
+def analytics_insights(days: int = 28):
+    from src.services.analytics import get_report, get_insights
+    try:
+        report = get_report(days=days)
+        insights = get_insights(report)
+        return {"insights": insights}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)

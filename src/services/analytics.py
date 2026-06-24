@@ -15,8 +15,9 @@ _DATA_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 
 def _load_creds() -> dict:
-    """Load OAuth credentials from env var (production) or file (local)."""
-    token_json = os.getenv("YOUTUBE_TOKEN_JSON", "")
+    """Load OAuth credentials from env var (Railway) or file (local)."""
+    # YOUTUBE_OAUTH_TOKEN_JSON is the canonical var (same as publisher.py)
+    token_json = os.getenv("YOUTUBE_OAUTH_TOKEN_JSON", "") or os.getenv("YOUTUBE_TOKEN_JSON", "")
     if token_json:
         return json.loads(token_json)
     creds_path = Path(YOUTUBE_CREDENTIALS)
@@ -24,7 +25,7 @@ def _load_creds() -> dict:
         raise RuntimeError(
             "No hay credenciales OAuth.\n"
             "Local: corre scripts/setup_youtube.py\n"
-            "Railway: pega el contenido de credentials/youtube_oauth.json en la variable YOUTUBE_TOKEN_JSON"
+            "Railway: pega credentials/youtube_oauth.json en la variable YOUTUBE_OAUTH_TOKEN_JSON"
         )
     return json.loads(creds_path.read_text())
 
@@ -166,3 +167,39 @@ def get_report(days: int = 28) -> list[dict]:
         })
 
     return sorted(metrics, key=lambda x: x["retention_pct"], reverse=True)
+
+
+def get_insights(report: list[dict]) -> list[str]:
+    """
+    Use Gemini to generate 4-6 actionable insights from the analytics report.
+    Returns a list of insight strings.
+    """
+    if not report:
+        return ["Aún no hay datos suficientes. Publica algunos clips y espera 24-48h."]
+
+    from src.utils.config import GOOGLE_API_KEY
+    if not GOOGLE_API_KEY:
+        return ["Configura GOOGLE_API_KEY para obtener insights con IA."]
+
+    from google import genai
+
+    summary = "\n".join(
+        f"- \"{r['title'][:60]}\" | {r['views']} vistas | {r['retention_pct']}% retención | {r['avg_view_duration_s']}s dur. avg | {r['likes']} likes | +{r['subs_gained']} subs"
+        for r in report[:20]
+    )
+
+    prompt = f"""Eres un estratega de YouTube Shorts. Analiza estos datos de rendimiento y dame exactamente 5 insights accionables en español, cada uno en una línea que empiece con un emoji relevante. Sé específico con los datos, no genérico.
+
+Datos (últimos 28 días):
+{summary}
+
+Responde SOLO con las 5 líneas de insights, sin numeración, sin encabezados."""
+
+    try:
+        client = genai.Client(api_key=GOOGLE_API_KEY)
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        lines = [l.strip() for l in response.text.strip().splitlines() if l.strip()]
+        return lines[:6]
+    except Exception as e:
+        log.error(f"Insights error: {e}")
+        return [f"Error generando insights: {e}"]

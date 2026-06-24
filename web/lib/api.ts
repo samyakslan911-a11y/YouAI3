@@ -103,4 +103,7 @@ export const api = {
     }),
 
   analytics: (days = 28) => apiFetch<{ report: Record<string, unknown>[] }>(`/api/analytics?days=${days}`),
+
+  analyticsInsights: (days = 28) =>
+    apiFetch<{ insights: string[] }>(`/api/analytics/insights?days=${days}`, { method: "POST" }),
 };

@@ -981,14 +981,24 @@ function AnalyticsSection() {
   const [report, setReport] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [insights, setInsights] = useState<string[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const load = useCallback(async (d: number) => {
     setLoading(true);
     setError("");
+    setInsights([]);
     try { const res = await api.analytics(d); setReport(res.report as Report[]); }
     catch (e: unknown) { setError(e instanceof Error ? e.message : "Error"); }
     finally { setLoading(false); }
   }, []);
+
+  async function loadInsights() {
+    setInsightsLoading(true);
+    try { const res = await api.analyticsInsights(days); setInsights(res.insights); }
+    catch (e: unknown) { setInsights([e instanceof Error ? e.message : "Error generando insights"]); }
+    finally { setInsightsLoading(false); }
+  }
 
   useEffect(() => { load(28); }, []);
 
@@ -997,8 +1007,8 @@ function AnalyticsSection() {
 
   return (
     <div className="space-y-6">
-      {/* period selector */}
-      <div className="flex items-center gap-2">
+      {/* period selector + insights button */}
+      <div className="flex items-center gap-2 flex-wrap">
         {[7, 28, 90].map((d) => (
           <button key={d} onClick={() => { setDays(d); load(d); }}
             className={`text-sm px-4 py-2 rounded-xl border transition-all ${
@@ -1010,7 +1020,35 @@ function AnalyticsSection() {
           </button>
         ))}
         {loading && <Loader2 size={13} className="animate-spin text-zinc-600 ml-2" />}
+        {report.length > 0 && (
+          <button onClick={loadInsights} disabled={insightsLoading}
+            className="ml-auto flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400 disabled:opacity-40 transition-all">
+            {insightsLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            {insightsLoading ? "Analizando..." : "Insights IA"}
+          </button>
+        )}
       </div>
+
+      {/* AI Insights panel */}
+      <AnimatePresence>
+        {insights.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            className="glass grad-border rounded-2xl p-5 space-y-3">
+            <p className="text-xs text-red-400/80 font-medium uppercase tracking-widest flex items-center gap-1.5">
+              <Sparkles size={10} /> Insights IA · últimos {days} días
+            </p>
+            <ul className="space-y-2">
+              {insights.map((ins, i) => (
+                <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
+                  className="flex items-start gap-3 text-sm text-zinc-300 leading-relaxed">
+                  <span className="text-base shrink-0">{ins.match(/^\p{Emoji}/u)?.[0] ?? "•"}</span>
+                  <span>{ins.replace(/^\p{Emoji}\s*/u, "")}</span>
+                </motion.li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {error && (
         <div className="glass rounded-2xl p-6 text-center space-y-2">
