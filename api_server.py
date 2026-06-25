@@ -324,6 +324,8 @@ class PublishRequest(BaseModel):
     title: str = ""
     description: str = ""
     tags: List[str] = []
+    topic: str = ""   # used by AI music selector (optional, auto-read from sidecar)
+    style: str = ""   # visual style (botanico, dark_jungle, etc.)
 
 
 @app.get("/api/platforms")
@@ -371,14 +373,28 @@ def publish_clip(filename: str, req: PublishRequest):
     if not title:
         title = path.stem
 
-    from src.services.publisher import publish_youtube, publish_tiktok, publish_instagram
+    # Read topic/style from sidecar metadata for AI music selection
+    topic = req.topic or meta.get("topic", "")
+    style = req.style or meta.get("style", "botanico")
+
+    from src.services.publisher import (
+        publish_youtube, publish_tiktok,
+        publish_instagram, publish_instagram_playwright,
+    )
+    import src.services.publisher as _pub
+    _pub._current_topic = topic
+    _pub._current_style = style
 
     if req.platform == "youtube":
         result = publish_youtube(path, title, description, tags)
     elif req.platform == "tiktok":
         result = publish_tiktok(path, title, tags)
     elif req.platform == "instagram":
-        result = publish_instagram(path, description or title)
+        # Use Playwright (+ AI music) when topic metadata is available
+        if topic:
+            result = publish_instagram_playwright(path, description or title, topic, style)
+        else:
+            result = publish_instagram(path, description or title)
     else:
         raise HTTPException(status_code=422, detail=f"Plataforma desconocida: {req.platform}")
 

@@ -11,6 +11,10 @@ from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
+# Content metadata passed to music selector — set by callers when known
+_current_topic: str = ""
+_current_style: str = "botanico"
+
 
 @dataclass
 class PublisherResult:
@@ -39,6 +43,8 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
     caption = f"{title} " + " ".join(f"#{t}" for t in tags[:5])
 
     try:
+        from src.services.music_selector import suggest_audio_queries, select_sound_tiktok
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             ctx = browser.new_context()
@@ -53,6 +59,18 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
             page.wait_for_selector("input[type='file']", timeout=15000)
             page.set_input_files("input[type='file']", str(clip_path))
             page.wait_for_selector(".caption-input", timeout=30000)
+
+            # ── AI trending music selection ──────────────────────────────
+            topic = _current_topic or title
+            style = _current_style
+            queries = suggest_audio_queries(topic, style, platform="tiktok")
+            selected = select_sound_tiktok(page, queries)
+            if selected:
+                log.info(f"TikTok: música trending seleccionada → '{selected}'")
+            else:
+                log.info("TikTok: publicando sin música (selector no disponible)")
+            # ────────────────────────────────────────────────────────────
+
             page.fill(".caption-input", caption)
             page.click("button[data-e2e='post_video_button']")
             page.wait_for_url("**/upload**", timeout=60000)
@@ -66,7 +84,135 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
         return PublisherResult("tiktok", False, error=str(e))
 
 
-# ─── Instagram Reels ─────────────────────────────────────────────────────────
+# ─── Instagram Reels (Playwright — con selección de música trending) ─────────
+
+def publish_instagram_playwright(
+    clip_path: Path, caption: str, topic: str = "", style: str = "botanico"
+) -> PublisherResult:
+    """
+    Publish a Reel via Playwright web automation.
+    Attempts to select trending audio matching topic+style before publishing.
+    Falls back gracefully to publishing without music if the UI changes.
+    """
+    if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+        return PublisherResult(
+            "instagram", False,
+            error="INSTAGRAM_USERNAME y INSTAGRAM_PASSWORD no configurados en .env"
+        )
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return PublisherResult("instagram", False, error="playwright no instalado")
+
+    try:
+        from src.services.music_selector import suggest_audio_queries, select_sound_instagram
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(
+                viewport={"width": 1280, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/125.0.0.0 Safari/537.36"
+                ),
+            )
+            page = ctx.new_page()
+
+            # Login
+            page.goto("https://www.instagram.com/accounts/login/")
+            page.wait_for_selector("input[name='username']", timeout=15000)
+            page.fill("input[name='username']", INSTAGRAM_USERNAME)
+            page.fill("input[name='password']", INSTAGRAM_PASSWORD)
+            page.click("button[type='submit']")
+            page.wait_for_url("**/instagram.com/**", timeout=20000)
+            time.sleep(2)
+
+            # Dismiss "Save info" / "Turn on notifications" dialogs
+            for label in ["Not Now", "Ahora no", "Not now"]:
+                btn = page.query_selector(f"button:has-text('{label}')")
+                if btn:
+                    btn.click()
+                    time.sleep(0.8)
+
+            # Open Create post
+            create_btn = page.query_selector(
+                "svg[aria-label='New post'], "
+                "a[href='/create/style/'], "
+                "div[role='button']:has-text('Create')"
+            )
+            if not create_btn:
+                # Fallback: click the + icon in nav
+                page.click("svg[aria-label*='reate'], a[href*='/create']")
+            else:
+                create_btn.click()
+            time.sleep(1.5)
+
+            # Select file
+            file_input = page.query_selector("input[type='file']")
+            if file_input:
+                file_input.set_input_files(str(clip_path))
+            else:
+                return PublisherResult("instagram", False, error="file input not found in create UI")
+
+            time.sleep(2)
+
+            # Switch to Reel format if needed
+            reel_btn = page.query_selector("button:has-text('Reel'), div:has-text('Reels')")
+            if reel_btn:
+                reel_btn.click()
+                time.sleep(1)
+
+            # Advance through editing steps (Next → Next → Caption)
+            for _ in range(3):
+                next_btn = page.query_selector("button:has-text('Next'), button:has-text('Siguiente')")
+                if next_btn:
+                    next_btn.click()
+                    time.sleep(1.5)
+
+            # ── AI trending music selection ──────────────────────────────
+            queries = suggest_audio_queries(topic or caption[:40], style, platform="instagram")
+            selected = select_sound_instagram(page, queries)
+            if selected:
+                log.info(f"Instagram: música trending seleccionada → '{selected}'")
+            else:
+                log.info("Instagram: publicando sin música adicional")
+            # ────────────────────────────────────────────────────────────
+
+            # Fill caption
+            caption_box = page.query_selector(
+                "div[aria-label*='caption'], div[aria-label*='Caption'], "
+                "div[contenteditable='true']"
+            )
+            if caption_box:
+                caption_box.click()
+                caption_box.type(caption[:2200], delay=20)
+                time.sleep(0.5)
+
+            # Share
+            share_btn = page.query_selector(
+                "button:has-text('Share'), button:has-text('Compartir')"
+            )
+            if not share_btn:
+                return PublisherResult("instagram", False, error="Share button not found")
+            share_btn.click()
+            time.sleep(5)
+            browser.close()
+
+        log.info("Instagram Reel (Playwright): publicado")
+        return PublisherResult(
+            "instagram", True,
+            url=f"https://www.instagram.com/{INSTAGRAM_USERNAME}/reels/"
+        )
+
+    except Exception as e:
+        log.error(f"Instagram Playwright error: {type(e).__name__}")
+        safe = str(e).replace(INSTAGRAM_USERNAME or "", "***").replace(INSTAGRAM_PASSWORD or "", "***")
+        return PublisherResult("instagram", False, error=safe)
+
+
+# ─── Instagram Reels (instagrapi fallback — sin selección de música) ──────────
 
 def publish_instagram(clip_path: Path, caption: str) -> PublisherResult:
     if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
@@ -160,17 +306,34 @@ def publish_all(
     clip_path: Path,
     segment: dict,
     platforms: list[str],
+    topic: str = "",
+    style: str = "botanico",
 ) -> list[PublisherResult]:
+    """
+    Publish to one or more platforms.
+    topic + style are used by the AI music selector to choose trending audio.
+    When provided, Instagram uses Playwright (with music); otherwise instagrapi.
+    """
+    global _current_topic, _current_style
+    _current_topic = topic or segment.get("topic", "")
+    _current_style = style or segment.get("style", "botanico")
+
     title = segment.get("title", clip_path.stem)
-    hook = segment.get("hook", title)
-    tags = [t.strip("#") for t in hook.split() if t.startswith("#")]
+    hook  = segment.get("hook", title)
+    tags  = [t.strip("#") for t in hook.split() if t.startswith("#")]
 
     results = []
     for platform in platforms:
         if platform == "tiktok":
             results.append(publish_tiktok(clip_path, title, tags))
         elif platform == "instagram":
-            results.append(publish_instagram(clip_path, hook))
+            # Use Playwright (+ music) when topic is known; fallback to instagrapi
+            if _current_topic:
+                results.append(
+                    publish_instagram_playwright(clip_path, hook, _current_topic, _current_style)
+                )
+            else:
+                results.append(publish_instagram(clip_path, hook))
         elif platform == "youtube":
             results.append(publish_youtube(clip_path, title, hook, tags))
         else:
