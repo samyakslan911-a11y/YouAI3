@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 log = logging.getLogger(__name__)
 
 W, H = 1080, 1350
-CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@tucanal")
+CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@milokira")
 
 _ASSETS = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
 
