@@ -36,6 +36,35 @@ class ContentProfile:
     content_angles: list[str]
     image_keywords: list[str]
     created_at: str
+    # Brand Kit (optional — None means no brand kit set)
+    brand_accent_hex: str | None = None   # e.g. "#8abe69"
+    brand_base_hue: str | None = None     # "natural" | "calido" | "frio"
+    brand_darkness: str | None = None     # "claro" | "suave" | "oscuro"
+    brand_font: str | None = None         # "editorial" | "moderno" | "elegante"
+    brand_voice: str | None = None        # extra rules for Gemini prompt
+
+
+# Font presets for Brand Kit
+_BRAND_FONT_MAP = {
+    "editorial":  {"font_h": "bold",   "size_h": 86, "font_b": "light", "size_b": 42},
+    "moderno":    {"font_h": "bold",   "size_h": 82, "font_b": "reg",   "size_b": 40},
+    "elegante":   {"font_h": "lightb", "size_h": 90, "font_b": "light", "size_b": 42},
+}
+
+
+def build_brand_style(profile: "ContentProfile") -> dict | None:
+    """Return a style_override dict from the profile's brand kit, or None if not set."""
+    if not profile.brand_accent_hex:
+        return None
+    from src.services.custom_styles import derive_style_dict
+    style = derive_style_dict(
+        profile.brand_accent_hex,
+        profile.brand_base_hue or "natural",
+        profile.brand_darkness or "suave",
+    )
+    font_cfg = _BRAND_FONT_MAP.get(profile.brand_font or "editorial", _BRAND_FONT_MAP["editorial"])
+    style.update(font_cfg)
+    return style
 
 
 def _init_table() -> None:
@@ -43,15 +72,38 @@ def _init_table() -> None:
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS content_profiles (
-                id            TEXT PRIMARY KEY,
-                name          TEXT NOT NULL,
-                expert_context TEXT NOT NULL,
-                style         TEXT NOT NULL,
-                content_angles TEXT NOT NULL,
-                image_keywords TEXT NOT NULL,
-                created_at    TEXT NOT NULL
+                id              TEXT PRIMARY KEY,
+                name            TEXT NOT NULL,
+                expert_context  TEXT NOT NULL,
+                style           TEXT NOT NULL,
+                content_angles  TEXT NOT NULL,
+                image_keywords  TEXT NOT NULL,
+                created_at      TEXT NOT NULL,
+                brand_accent_hex TEXT,
+                brand_base_hue   TEXT,
+                brand_darkness   TEXT,
+                brand_font       TEXT,
+                brand_voice      TEXT
             )
         """)
+        # Migration: add brand kit columns if table existed without them
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(content_profiles)")}
+        for col, typedef in [
+            ("brand_accent_hex", "TEXT"),
+            ("brand_base_hue",   "TEXT"),
+            ("brand_darkness",   "TEXT"),
+            ("brand_font",       "TEXT"),
+            ("brand_voice",      "TEXT"),
+        ]:
+            if col not in existing:
+                conn.execute(f"ALTER TABLE content_profiles ADD COLUMN {col} {typedef}")
+
+
+_SELECT = (
+    "SELECT id, name, expert_context, style, content_angles, image_keywords, created_at, "
+    "brand_accent_hex, brand_base_hue, brand_darkness, brand_font, brand_voice "
+    "FROM content_profiles"
+)
 
 
 def _row(row: tuple) -> ContentProfile:
@@ -60,27 +112,25 @@ def _row(row: tuple) -> ContentProfile:
         content_angles=json.loads(row[4]),
         image_keywords=json.loads(row[5]),
         created_at=row[6],
+        brand_accent_hex=row[7],
+        brand_base_hue=row[8],
+        brand_darkness=row[9],
+        brand_font=row[10],
+        brand_voice=row[11],
     )
 
 
 def load_profiles() -> list[ContentProfile]:
     _init_table()
     with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            "SELECT id, name, expert_context, style, content_angles, image_keywords, created_at "
-            "FROM content_profiles ORDER BY created_at"
-        ).fetchall()
+        rows = conn.execute(f"{_SELECT} ORDER BY created_at").fetchall()
     return [_row(r) for r in rows]
 
 
 def get_profile(profile_id: str) -> ContentProfile | None:
     _init_table()
     with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute(
-            "SELECT id, name, expert_context, style, content_angles, image_keywords, created_at "
-            "FROM content_profiles WHERE id = ?",
-            (profile_id,),
-        ).fetchone()
+        row = conn.execute(f"{_SELECT} WHERE id = ?", (profile_id,)).fetchone()
     return _row(row) if row else None
 
 
@@ -96,15 +146,37 @@ def _save(profile: ContentProfile) -> None:
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "INSERT OR REPLACE INTO content_profiles "
-            "(id, name, expert_context, style, content_angles, image_keywords, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(id, name, expert_context, style, content_angles, image_keywords, created_at, "
+            " brand_accent_hex, brand_base_hue, brand_darkness, brand_font, brand_voice) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 profile.id, profile.name, profile.expert_context, profile.style,
                 json.dumps(profile.content_angles, ensure_ascii=False),
                 json.dumps(profile.image_keywords, ensure_ascii=False),
                 profile.created_at,
+                profile.brand_accent_hex, profile.brand_base_hue, profile.brand_darkness,
+                profile.brand_font, profile.brand_voice,
             ),
         )
+
+
+def update_brand_kit(
+    profile_id: str,
+    accent_hex: str | None,
+    base_hue: str | None,
+    darkness: str | None,
+    font: str | None,
+    voice: str | None,
+) -> ContentProfile | None:
+    _init_table()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "UPDATE content_profiles SET "
+            "brand_accent_hex=?, brand_base_hue=?, brand_darkness=?, brand_font=?, brand_voice=? "
+            "WHERE id=?",
+            (accent_hex, base_hue, darkness, font, voice, profile_id),
+        )
+    return get_profile(profile_id)
 
 
 def generate_profile(name: str) -> ContentProfile:

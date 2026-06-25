@@ -147,6 +147,16 @@ export const api = {
   deleteProfile: (id: string) =>
     apiFetch<{ success: boolean }>(`/api/profiles/${id}`, { method: "DELETE" }),
 
+  saveBrandKit: (
+    id: string,
+    kit: { accent_hex?: string | null; base_hue?: string | null; darkness?: string | null; font?: string | null; voice?: string | null }
+  ) =>
+    apiFetch<ProfileItem>(`/api/profiles/${id}/brand-kit`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(kit),
+    }),
+
   listStyles: () =>
     apiFetch<{ styles: StyleItem[] }>("/api/styles"),
 
@@ -169,6 +179,12 @@ export type ProfileItem = {
   content_angles: string[];
   image_keywords: string[];
   created_at: string;
+  // Brand Kit (optional)
+  brand_accent_hex?: string | null;
+  brand_base_hue?: string | null;
+  brand_darkness?: string | null;
+  brand_font?: string | null;
+  brand_voice?: string | null;
 };
 
 export type StyleItem = {

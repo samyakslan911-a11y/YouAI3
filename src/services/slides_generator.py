@@ -123,6 +123,9 @@ def generate(
     _log("Generando contenido con Gemini...")
     top = _top_designs()
     expert_context = profile.expert_context if profile else None
+    if profile and profile.brand_voice:
+        brand_voice_note = f"\n\nVOZ DE MARCA:\n{profile.brand_voice}"
+        expert_context = (expert_context or "") + brand_voice_note
     content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context)
     _log(f"Contenido listo: {len(content['slides'])} slides")
 

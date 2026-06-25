@@ -480,6 +480,14 @@ class ProfileCreateRequest(BaseModel):
     name: str
 
 
+class BrandKitRequest(BaseModel):
+    accent_hex: str | None = None
+    base_hue: str | None = None     # natural | calido | frio
+    darkness: str | None = None     # claro | suave | oscuro
+    font: str | None = None         # editorial | moderno | elegante
+    voice: str | None = None
+
+
 class ProfileResponse(BaseModel):
     id: str
     name: str
@@ -488,6 +496,11 @@ class ProfileResponse(BaseModel):
     content_angles: list
     image_keywords: list
     created_at: str
+    brand_accent_hex: str | None = None
+    brand_base_hue: str | None = None
+    brand_darkness: str | None = None
+    brand_font: str | None = None
+    brand_voice: str | None = None
 
 
 @app.get("/api/profiles")
@@ -514,6 +527,18 @@ def create_profile(req: ProfileCreateRequest):
 def remove_profile(profile_id: str):
     from src.services.content_profiles import delete_profile
     return {"success": delete_profile(profile_id)}
+
+
+@app.put("/api/profiles/{profile_id}/brand-kit")
+def save_brand_kit(profile_id: str, req: BrandKitRequest):
+    from src.services.content_profiles import update_brand_kit
+    from dataclasses import asdict
+    profile = update_brand_kit(
+        profile_id, req.accent_hex, req.base_hue, req.darkness, req.font, req.voice
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return ProfileResponse(**asdict(profile))
 
 
 # ── Custom Styles ─────────────────────────────────────────────────────────────
@@ -599,10 +624,16 @@ def create_slides(req: SlidesRequest):
         effective_style = "botanico"
 
     if req.profile_id:
-        from src.services.content_profiles import get_profile
+        from src.services.content_profiles import get_profile, build_brand_style
         _profile = get_profile(req.profile_id)
-        if _profile and req.style == "botanico" and not style_override:
-            effective_style = _profile.style
+        if _profile:
+            # Brand kit takes priority over manual style selection
+            brand_override = build_brand_style(_profile)
+            if brand_override:
+                style_override = brand_override
+                effective_style = "botanico"  # base name for fallback only
+            elif req.style == "botanico" and not style_override:
+                effective_style = _profile.style
     else:
         _profile = None
 

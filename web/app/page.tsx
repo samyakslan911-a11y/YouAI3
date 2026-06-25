@@ -7,7 +7,7 @@ import {
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
   ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
   CalendarClock, CheckCircle2, XCircle, Trash2, LayoutGrid, Copy,
-  ChevronLeft, ImageIcon, Scissors, X,
+  ChevronLeft, ImageIcon, Scissors, X, Palette, Check,
 } from "lucide-react";
 
 // ── Slide lightbox ─────────────────────────────────────────────────────────────
@@ -1129,6 +1129,15 @@ function SlidesCreatorStudio() {
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [generatingProfile, setGeneratingProfile] = useState(false);
+
+  // Brand Kit modal
+  const [brandKitProfileId, setBrandKitProfileId] = useState<string | null>(null);
+  const [bkAccent, setBkAccent] = useState("#5a9e6a");
+  const [bkHue, setBkHue] = useState("natural");
+  const [bkDarkness, setBkDarkness] = useState("suave");
+  const [bkFont, setBkFont] = useState("editorial");
+  const [bkVoice, setBkVoice] = useState("");
+  const [bkSaving, setBkSaving] = useState(false);
   const [liveLog, setLiveLog] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -1205,8 +1214,39 @@ function SlidesCreatorStudio() {
     setSelectedProfile(id);
     if (id) {
       const p = profiles.find(pr => pr.id === id);
-      if (p) setStyle(p.style);
+      if (p && !p.brand_accent_hex) setStyle(p.style);
     }
+  }
+
+  function openBrandKit(p: ProfileItem) {
+    setBkAccent(p.brand_accent_hex ?? "#5a9e6a");
+    setBkHue(p.brand_base_hue ?? "natural");
+    setBkDarkness(p.brand_darkness ?? "suave");
+    setBkFont(p.brand_font ?? "editorial");
+    setBkVoice(p.brand_voice ?? "");
+    setBrandKitProfileId(p.id);
+  }
+
+  async function saveBrandKit() {
+    if (!brandKitProfileId) return;
+    setBkSaving(true);
+    try {
+      const updated = await api.saveBrandKit(brandKitProfileId, {
+        accent_hex: bkAccent, base_hue: bkHue, darkness: bkDarkness,
+        font: bkFont, voice: bkVoice || null,
+      });
+      setProfiles(prev => prev.map(p => p.id === brandKitProfileId ? updated : p));
+      setBrandKitProfileId(null);
+    } finally {
+      setBkSaving(false);
+    }
+  }
+
+  async function clearBrandKit(profileId: string) {
+    const updated = await api.saveBrandKit(profileId, {
+      accent_hex: null, base_hue: null, darkness: null, font: null, voice: null,
+    });
+    setProfiles(prev => prev.map(p => p.id === profileId ? updated : p));
   }
 
   useEffect(() => {
@@ -1304,18 +1344,34 @@ function SlidesCreatorStudio() {
               </button>
 
               {profiles.map(p => {
-                const active = selectedProfile === p.id;
-                const ring   = STYLE_RING[p.style] ?? "ring-zinc-500/40 bg-zinc-700/20 text-zinc-300";
-                const dot    = STYLE_DOT[p.style]  ?? "bg-zinc-400";
+                const active    = selectedProfile === p.id;
+                const hasBrand  = !!p.brand_accent_hex;
+                const ring      = STYLE_RING[p.style] ?? "ring-zinc-500/40 bg-zinc-700/20 text-zinc-300";
+                const dot       = STYLE_DOT[p.style]  ?? "bg-zinc-400";
+                const brandRing = hasBrand ? "ring-1" : "";
                 return (
-                  <div key={p.id} className="group relative">
+                  <div key={p.id} className="group relative flex items-center gap-0.5">
                     <button onClick={() => selectProfile(p.id)}
-                      className={`pl-2.5 pr-7 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
-                        active ? `ring-1 ${ring}` : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80"
+                      className={`pl-2.5 pr-2 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        active
+                          ? hasBrand ? `${brandRing} ring-zinc-500/40 bg-zinc-700/30 text-zinc-200` : `ring-1 ${ring}`
+                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80"
                       }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? dot : "bg-zinc-600"}`} />
+                      {hasBrand
+                        ? <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/20"
+                            style={{ backgroundColor: p.brand_accent_hex! }} />
+                        : <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? dot : "bg-zinc-600"}`} />
+                      }
                       {p.name}
+                      {hasBrand && <Palette className="w-2.5 h-2.5 text-zinc-500 shrink-0" />}
                     </button>
+                    {/* Brand kit button */}
+                    <button
+                      onClick={e => { e.stopPropagation(); openBrandKit(p); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-zinc-600 hover:text-emerald-400 hover:bg-zinc-800">
+                      <Palette className="w-3 h-3" />
+                    </button>
+                    {/* Delete button */}
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -1323,8 +1379,8 @@ function SlidesCreatorStudio() {
                         setProfiles(prev => prev.filter(x => x.id !== p.id));
                         if (selectedProfile === p.id) setSelectedProfile(null);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
-                      <X className="w-2.5 h-2.5" />
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-zinc-600 hover:text-red-400 hover:bg-zinc-800">
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 );
@@ -1403,63 +1459,78 @@ function SlidesCreatorStudio() {
 
           {/* Style swatches + serie ──────────────────────────────────────── */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium">Estilo</span>
-              <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
-                <span>Parte serie</span>
-                <input type="number" min={1} max={10} placeholder="—"
-                  onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-12 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+            {/* Brand kit active badge — replaces style picker when profile has brand kit */}
+            {selectedProfile && profiles.find(p => p.id === selectedProfile)?.brand_accent_hex && (() => {
+              const p = profiles.find(pr => pr.id === selectedProfile)!;
+              return (
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700/40">
+                  <span className="w-3 h-3 rounded-full ring-1 ring-white/20 shrink-0"
+                    style={{ backgroundColor: p.brand_accent_hex! }} />
+                  <span className="text-zinc-300 text-xs font-medium flex-1">Brand Kit activo — {p.name}</span>
+                  <button onClick={() => openBrandKit(p)}
+                    className="text-zinc-500 hover:text-emerald-400 transition-colors text-xs flex items-center gap-1">
+                    <Palette className="w-3 h-3" /> Editar
+                  </button>
+                </div>
+              );
+            })()}
+
+            <div className={selectedProfile && profiles.find(p => p.id === selectedProfile)?.brand_accent_hex ? "opacity-30 pointer-events-none space-y-2" : "space-y-2"}>
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium">Estilo</span>
+                <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
+                  <span>Parte serie</span>
+                  <input type="number" min={1} max={10} placeholder="—"
+                    onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-12 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2 flex-wrap items-center">
-              {styles.map(s => {
-                const isActive = style === s.id;
-                const swatch = BUILTIN_SWATCHES[s.id];
-                return (
-                  <div key={s.id} className="relative group/swatch">
-                    <button onClick={() => setStyle(s.id)}
-                      className={`relative h-10 w-[4.5rem] rounded-xl overflow-hidden border transition-all duration-200 ${
-                        isActive
-                          ? "border-white/25 ring-1 ring-white/20 scale-105 shadow-lg shadow-black/40"
-                          : "border-zinc-700/50 hover:border-zinc-500 opacity-55 hover:opacity-95 hover:scale-[1.03]"
-                      }`}>
-                      {swatch ? (
-                        <div className={`absolute inset-0 bg-gradient-to-br ${swatch}`} />
-                      ) : (
-                        <div className="absolute inset-0" style={{
-                          background: `linear-gradient(135deg, ${s.accent_hex}18 0%, ${s.accent_hex}55 100%)`
-                        }} />
-                      )}
-                      {/* Shimmer on active */}
-                      {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent" />
-                      )}
-                      <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
-                        <span className="text-white/90 text-[9px] font-semibold drop-shadow-md leading-none line-clamp-1">
-                          {s.name}
-                        </span>
-                      </div>
-                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full opacity-90"
-                            style={{ backgroundColor: s.accent_hex }} />
-                    </button>
-                    {/* Delete custom style */}
-                    {s.is_custom && (
-                      <button
-                        onClick={() => deleteCustomStyle(s.id)}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white hover:bg-red-900/60 flex items-center justify-center opacity-0 group-hover/swatch:opacity-100 transition-opacity z-10">
-                        <X className="w-2.5 h-2.5" />
+              <div className="flex gap-2 flex-wrap items-center">
+                {styles.map(s => {
+                  const isActive = style === s.id;
+                  const swatch = BUILTIN_SWATCHES[s.id];
+                  return (
+                    <div key={s.id} className="relative group/swatch">
+                      <button onClick={() => setStyle(s.id)}
+                        className={`relative h-10 w-[4.5rem] rounded-xl overflow-hidden border transition-all duration-200 ${
+                          isActive
+                            ? "border-white/25 ring-1 ring-white/20 scale-105 shadow-lg shadow-black/40"
+                            : "border-zinc-700/50 hover:border-zinc-500 opacity-55 hover:opacity-95 hover:scale-[1.03]"
+                        }`}>
+                        {swatch ? (
+                          <div className={`absolute inset-0 bg-gradient-to-br ${swatch}`} />
+                        ) : (
+                          <div className="absolute inset-0" style={{
+                            background: `linear-gradient(135deg, ${s.accent_hex}18 0%, ${s.accent_hex}55 100%)`
+                          }} />
+                        )}
+                        {isActive && (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent" />
+                        )}
+                        <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
+                          <span className="text-white/90 text-[9px] font-semibold drop-shadow-md leading-none line-clamp-1">
+                            {s.name}
+                          </span>
+                        </div>
+                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full opacity-90"
+                              style={{ backgroundColor: s.accent_hex }} />
                       </button>
-                    )}
-                  </div>
-                );
-              })}
-              {/* Create custom style button */}
-              <button onClick={() => setShowStyleModal(true)}
-                className="h-10 w-10 rounded-xl border border-dashed border-zinc-600/70 hover:border-zinc-400 text-zinc-600 hover:text-zinc-300 flex items-center justify-center transition-all hover:bg-zinc-800/40 shrink-0"
-                title="Crear estilo personalizado">
-                <span className="text-xl leading-none">+</span>
-              </button>
+                      {s.is_custom && (
+                        <button
+                          onClick={() => deleteCustomStyle(s.id)}
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white hover:bg-red-900/60 flex items-center justify-center opacity-0 group-hover/swatch:opacity-100 transition-opacity z-10">
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <button onClick={() => setShowStyleModal(true)}
+                  className="h-10 w-10 rounded-xl border border-dashed border-zinc-600/70 hover:border-zinc-400 text-zinc-600 hover:text-zinc-300 flex items-center justify-center transition-all hover:bg-zinc-800/40 shrink-0"
+                  title="Crear estilo personalizado">
+                  <span className="text-xl leading-none">+</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1533,6 +1604,117 @@ function SlidesCreatorStudio() {
                 </motion.div>
               </motion.div>
             )}
+          </AnimatePresence>
+
+          {/* Brand Kit modal */}
+          <AnimatePresence>
+            {brandKitProfileId && (() => {
+              const profileName = profiles.find(p => p.id === brandKitProfileId)?.name ?? "";
+              return (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+                  onClick={() => setBrandKitProfileId(null)}>
+                  <motion.div initial={{ scale: 0.94, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 10 }}
+                    transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                    className="bg-zinc-900 border border-zinc-700/60 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-semibold text-[15px] flex items-center gap-2">
+                          <Palette className="w-4 h-4 text-emerald-400" /> Brand Kit
+                        </h3>
+                        <p className="text-zinc-500 text-xs mt-0.5">{profileName}</p>
+                      </div>
+                      <button onClick={() => setBrandKitProfileId(null)} className="text-zinc-500 hover:text-zinc-300 p-1">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Color acento */}
+                    <div className="space-y-2">
+                      <label className="text-zinc-400 text-[11px] uppercase tracking-wider block">Color de marca</label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={bkAccent} onChange={e => setBkAccent(e.target.value)}
+                          className="w-12 h-10 rounded-xl border-2 border-zinc-700 bg-zinc-800 cursor-pointer p-0.5 shrink-0" />
+                        <div className="h-10 flex-1 rounded-xl border border-zinc-700/60 overflow-hidden">
+                          <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${bkAccent}20, ${bkAccent}80)` }} />
+                        </div>
+                        <span className="text-zinc-500 text-[11px] font-mono">{bkAccent}</span>
+                      </div>
+                    </div>
+
+                    {/* Paleta + oscuridad */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-zinc-400 text-[11px] uppercase tracking-wider mb-1.5 block">Paleta base</label>
+                        <select value={bkHue} onChange={e => setBkHue(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-500 transition cursor-pointer">
+                          <option value="natural">Natural</option>
+                          <option value="calido">Cálido</option>
+                          <option value="frio">Frío</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-zinc-400 text-[11px] uppercase tracking-wider mb-1.5 block">Oscuridad</label>
+                        <select value={bkDarkness} onChange={e => setBkDarkness(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-500 transition cursor-pointer">
+                          <option value="claro">Claro</option>
+                          <option value="suave">Suave</option>
+                          <option value="oscuro">Oscuro</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tipografía */}
+                    <div>
+                      <label className="text-zinc-400 text-[11px] uppercase tracking-wider mb-2 block">Estilo tipográfico</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: "editorial", label: "Editorial", desc: "Playfair Bold" },
+                          { id: "moderno",   label: "Moderno",   desc: "Sans Bold" },
+                          { id: "elegante",  label: "Elegante",  desc: "Playfair Light" },
+                        ].map(f => (
+                          <button key={f.id} onClick={() => setBkFont(f.id)}
+                            className={`p-2.5 rounded-xl border text-center transition-all ${
+                              bkFont === f.id
+                                ? "border-emerald-500/60 bg-emerald-950/40 text-emerald-300"
+                                : "border-zinc-700/60 hover:border-zinc-600 text-zinc-400 hover:text-zinc-300"
+                            }`}>
+                            <span className="text-xs font-medium block">{f.label}</span>
+                            <span className="text-[10px] text-zinc-500 block">{f.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Voz de marca */}
+                    <div>
+                      <label className="text-zinc-400 text-[11px] uppercase tracking-wider mb-1.5 block">Voz de marca</label>
+                      <textarea
+                        value={bkVoice}
+                        onChange={e => setBkVoice(e.target.value)}
+                        placeholder="Ej: Tono cercano y educativo. Nunca usar anglicismos. Siempre mencionar la especie científica. Priorizar datos concretos sobre consejos genéricos…"
+                        rows={3}
+                        className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition resize-none"
+                      />
+                      <p className="text-zinc-600 text-[10px] mt-1">Instrucciones extra para Gemini al generar contenido de este perfil.</p>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => setBrandKitProfileId(null)}
+                        className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:bg-zinc-800 transition-colors">
+                        Cancelar
+                      </button>
+                      <button onClick={saveBrandKit} disabled={bkSaving}
+                        className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        {bkSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Guardar brand kit
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              );
+            })()}
           </AnimatePresence>
 
           {/* Progress steps */}
