@@ -33,7 +33,7 @@ def _inat_photos(species: str, n: int = 6) -> list[str]:
             url,
             headers={"User-Agent": "YouAI3/1.0 (content-generator)"},
         )
-        with urllib.request.urlopen(req, timeout=12) as r:
+        with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read())
         urls = []
         for obs in data.get("results", []):
@@ -66,7 +66,7 @@ def _pexels_photos(query: str, n: int = 6) -> list[str]:
             url,
             headers={"Authorization": key, "User-Agent": "Mozilla/5.0", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=12) as r:
+        with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read())
         urls = [p["src"]["portrait"] for p in data.get("photos", [])]
         log.info(f"  Pexels [{query}]: {len(urls)} fotos")
@@ -84,7 +84,7 @@ def _download(url: str, dest: Path, top_bias: float = 0.25) -> bool:
             url,
             headers={"User-Agent": "Mozilla/5.0"},
         )
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with urllib.request.urlopen(req, timeout=8) as r:
             data = r.read()
         img = Image.open(io.BytesIO(data)).convert("RGB")
         # Crop to portrait ratio centered
@@ -142,8 +142,12 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
         contents: list = [prompt]
         for p in candidates:
             try:
-                with open(p, "rb") as f:
-                    contents.append(types.Part.from_bytes(data=f.read(), mime_type="image/jpeg"))
+                # Resize to 400px wide thumbnail before sending — much smaller payload
+                thumb = Image.open(p).convert("RGB")
+                thumb.thumbnail((400, 500), Image.LANCZOS)
+                buf = io.BytesIO()
+                thumb.save(buf, format="JPEG", quality=75)
+                contents.append(types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"))
             except Exception:
                 pass
 
@@ -184,47 +188,49 @@ def fetch_image(
     query      = slide.get("image_query", "succulent plant indoor")
     bias = 0.25 if image_type == "species" else 0.5
 
+    MAX_CANDIDATES = 3  # cap: 3 is enough for Vision to pick, keeps threads fast
+
     # 1. iNaturalist for species slides
     if image_type == "species" and species:
-        urls = _inat_photos(species, n=6)
+        urls = _inat_photos(species, n=4)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"inat_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
-            if len(candidates) >= 4:
+            if len(candidates) >= MAX_CANDIDATES:
                 break
 
     # 2. Pexels primary query
-    if len(candidates) < 3:
-        pexels_query = query if image_type == "lifestyle" else f"{species or ''} {query}".strip()
-        urls = _pexels_photos(pexels_query, n=6)
+    pexels_query = query if image_type == "lifestyle" else f"{species or ''} {query}".strip()
+    if len(candidates) < MAX_CANDIDATES:
+        urls = _pexels_photos(pexels_query, n=4)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
-            if len(candidates) >= 6:
+            if len(candidates) >= MAX_CANDIDATES:
                 break
 
-    # 2b. Retry with shorter query if primary was too specific and returned few results
-    if len(candidates) < 2 and " " in pexels_query:
-        short_q = " ".join(pexels_query.split()[:4])
-        urls = _pexels_photos(short_q, n=4)
+    # 2b. Retry with shorter query only if we have 0 results
+    if len(candidates) == 0 and " " in pexels_query:
+        short_q = " ".join(pexels_query.split()[:3])
+        urls = _pexels_photos(short_q, n=3)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_short_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
-            if len(candidates) >= 6:
+            if len(candidates) >= MAX_CANDIDATES:
                 break
 
-    # 3. Profile keyword fallback if primary search was thin
-    if len(candidates) < 2 and extra_keywords:
+    # 3. Profile keyword fallback only if still empty
+    if len(candidates) == 0 and extra_keywords:
         kw = _random.choice(extra_keywords)
-        urls = _pexels_photos(kw, n=4)
+        urls = _pexels_photos(kw, n=3)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_kw_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
-            if len(candidates) >= 6:
+            if len(candidates) >= MAX_CANDIDATES:
                 break
 
     if not candidates:
