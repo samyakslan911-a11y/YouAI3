@@ -111,11 +111,11 @@ export const api = {
   analyticsInsights: (days = 28) =>
     apiFetch<{ insights: string[] }>(`/api/analytics/insights?days=${days}`, { method: "POST" }),
 
-  createSlides: (topic: string, style: string, series_part?: number) =>
+  createSlides: (topic: string, style: string, series_part?: number, profile_id?: string) =>
     apiFetch<{ job_id: string }>("/api/slides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, style, series_part }),
+      body: JSON.stringify({ topic, style, series_part, profile_id: profile_id ?? "" }),
     }),
 
   listSlides: () =>
@@ -133,4 +133,27 @@ export const api = {
   slideImageUrl: (slug: string, filename: string) => `${BASE}/api/slides/${slug}/images/${filename}`,
   slideVideoUrl: (slug: string) => `${BASE}/api/slides/${slug}/video`,
   slideZipUrl: (slug: string) => `${BASE}/api/slides/${slug}/zip`,
+
+  listProfiles: () =>
+    apiFetch<ProfileItem[]>("/api/profiles"),
+
+  createProfile: (name: string) =>
+    apiFetch<ProfileItem>("/api/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteProfile: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/profiles/${id}`, { method: "DELETE" }),
+};
+
+export type ProfileItem = {
+  id: string;
+  name: string;
+  expert_context: string;
+  style: string;
+  content_angles: string[];
+  image_keywords: string[];
+  created_at: string;
 };

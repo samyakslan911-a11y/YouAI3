@@ -64,7 +64,7 @@ Devuelve exactamente este JSON:
 """
 
 
-def generate_content(topic: str, style: SlidStyle, series_part: int | None = None) -> dict:
+def generate_content(topic: str, style: SlidStyle, series_part: int | None = None, expert_context: str | None = None) -> dict:
     import time
     from google import genai
     from google.genai import errors as genai_errors
@@ -80,7 +80,11 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     if series_part:
         series_hint = f"Este es la Parte {series_part} de una serie. Referencia partes anteriores y anuncia la siguiente."
 
-    prompt = _SYSTEM + "\n\n" + _PROMPT.format(
+    system_base = _SYSTEM
+    if expert_context:
+        system_base = system_base + f"\n\nCONTEXTO EXPERTO:\n{expert_context}"
+
+    prompt = system_base + "\n\n" + _PROMPT.format(
         topic=topic,
         style=style,
         series_hint=series_hint,

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { api, type Video, type Job } from "@/lib/api";
+import { api, type Video, type Job, type ProfileItem } from "@/lib/api";
 import {
   Search, Zap, Video as VideoIcon, BarChart2, TrendingUp,
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
@@ -1102,6 +1102,39 @@ function SlidesGeneratorSection() {
   const [copied, setCopied] = useState<string | null>(null);
   const [publishState, setPublishState] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
 
+  const [profiles, setProfiles] = useState<ProfileItem[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [creatingProfile, setCreatingProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [generatingProfile, setGeneratingProfile] = useState(false);
+
+  useEffect(() => {
+    api.listProfiles().then(setProfiles).catch(() => {});
+  }, []);
+
+  async function createProfile() {
+    if (!newProfileName.trim()) return;
+    setGeneratingProfile(true);
+    try {
+      const p = await api.createProfile(newProfileName.trim());
+      setProfiles(prev => [...prev, p]);
+      setSelectedProfile(p.id);
+      setStyle(p.style);
+      setNewProfileName("");
+      setCreatingProfile(false);
+    } finally {
+      setGeneratingProfile(false);
+    }
+  }
+
+  function selectProfile(id: string | null) {
+    setSelectedProfile(id);
+    if (id) {
+      const p = profiles.find(pr => pr.id === id);
+      if (p) setStyle(p.style);
+    }
+  }
+
   useEffect(() => {
     if (!jobId || status !== "running") return;
     const iv = setInterval(async () => {
@@ -1125,7 +1158,7 @@ function SlidesGeneratorSection() {
   async function generate() {
     if (!topic.trim()) return;
     setStatus("running"); setResult(null);
-    const { job_id } = await api.createSlides(topic.trim(), style, seriesPart);
+    const { job_id } = await api.createSlides(topic.trim(), style, seriesPart, selectedProfile ?? "");
     setJobId(job_id);
   }
 
@@ -1156,6 +1189,44 @@ function SlidesGeneratorSection() {
     <div className="space-y-6">
       {/* Form */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+        {/* Profiles row */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <button onClick={() => selectProfile(null)}
+            className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${!selectedProfile ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500'}`}>
+            General
+          </button>
+          {profiles.map(p => (
+            <button key={p.id} onClick={() => selectProfile(p.id)}
+              className={`px-3 py-1.5 rounded-lg border text-xs transition-all flex items-center gap-1.5 ${selectedProfile === p.id ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
+              {p.name}
+            </button>
+          ))}
+          <div className="flex items-center gap-1.5 ml-auto">
+            {creatingProfile ? (
+              <>
+                <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createProfile()}
+                  placeholder="Nombre de categoría..."
+                  autoFocus
+                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 w-52" />
+                <button onClick={createProfile} disabled={!newProfileName.trim() || generatingProfile}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs disabled:opacity-40 flex items-center gap-1">
+                  {generatingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  {generatingProfile ? 'Generando...' : 'Crear'}
+                </button>
+                <button onClick={() => setCreatingProfile(false)} className="text-zinc-600 hover:text-zinc-400 p-1">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setCreatingProfile(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-zinc-700 text-zinc-600 hover:text-zinc-400 text-xs transition-all">
+                <span>+</span> Nueva categoría
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="flex gap-3">
           <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => e.key === "Enter" && generate()}
             placeholder="Tema: ej. suculentas de interior, cactus para principiantes…"

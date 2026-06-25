@@ -98,6 +98,7 @@ def generate(
     topic: str,
     style: slides_composer.Style = "botanico",
     series_part: int | None = None,
+    profile=None,
     on_progress: callable = None,
 ) -> dict:
     """
@@ -120,7 +121,8 @@ def generate(
     # ── 1. Generate content via Gemini ────────────────────────────────────────
     _log("Generando contenido con Gemini...")
     top = _top_designs()
-    content = slides_content.generate_content(topic, style, series_part)
+    expert_context = profile.expert_context if profile else None
+    content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context)
     _log(f"Contenido listo: {len(content['slides'])} slides")
 
     # ── 2. Fetch images in parallel, compose slides ───────────────────────────

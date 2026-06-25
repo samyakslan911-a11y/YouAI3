@@ -474,12 +474,55 @@ def analytics_insights(days: int = 28):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Slides Generator ──────────────────────────────────────────────────────────
+# ── Content Profiles ──────────────────────────────────────────────────────────
+
+class ProfileCreateRequest(BaseModel):
+    name: str
+
+
+class ProfileResponse(BaseModel):
+    id: str
+    name: str
+    expert_context: str
+    style: str
+    content_angles: list
+    image_keywords: list
+    created_at: str
+
+
+@app.get("/api/profiles")
+def list_profiles():
+    from src.services.content_profiles import load_profiles
+    from dataclasses import asdict
+    return [ProfileResponse(**asdict(p)) for p in load_profiles()]
+
+
+@app.post("/api/profiles")
+def create_profile(req: ProfileCreateRequest):
+    from src.services.content_profiles import generate_profile
+    from dataclasses import asdict
+    if not req.name.strip():
+        raise HTTPException(status_code=422, detail="name is required")
+    try:
+        profile = generate_profile(req.name.strip())
+        return ProfileResponse(**asdict(profile))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/profiles/{profile_id}")
+def remove_profile(profile_id: str):
+    from src.services.content_profiles import delete_profile
+    return {"success": delete_profile(profile_id)}
+
+
+# ── Slides ────────────────────────────────────────────────────────────────────
 
 class SlidesRequest(BaseModel):
     topic: str
     style: str = "botanico"
     series_part: int | None = None
+    profile_id: str = ""
 
 
 SLIDES_OUTPUT = OUTPUT_DIR / "slides"
@@ -489,17 +532,30 @@ SLIDES_OUTPUT = OUTPUT_DIR / "slides"
 def create_slides(req: SlidesRequest):
     from src.services import slides_generator
     valid_styles = {"terracota", "botanico", "aesthetic", "dark_jungle"}
-    if req.style not in valid_styles:
+
+    effective_style = req.style
+    if req.profile_id:
+        from src.services.content_profiles import get_profile
+        _profile = get_profile(req.profile_id)
+        if _profile and req.style == "botanico":
+            effective_style = _profile.style
+    else:
+        _profile = None
+
+    if effective_style not in valid_styles:
         raise HTTPException(status_code=400, detail=f"style must be one of {valid_styles}")
 
     job_id = str(uuid.uuid4())[:8]
     job_store.create(job_id, url=f"slides:{req.topic}")
 
+    profile_snapshot = _profile
+
     def _run():
         job_store.update(job_id, status="running")
         try:
             meta = slides_generator.generate(
-                req.topic, req.style, req.series_part,
+                req.topic, effective_style, req.series_part,
+                profile=profile_snapshot,
                 on_progress=lambda msg: job_store.append_log(job_id, msg),
             )
             try:
