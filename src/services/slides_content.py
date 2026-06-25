@@ -152,12 +152,27 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     sc = min(valid_counts, key=lambda x: abs(x - slide_count))
     structure = _STRUCTURES[sc]
 
+    # Milokira uses Template 1 cover: hero slide needs care data in KEY:value format
+    milokira_override = ""
+    if style == "milokira":
+        milokira_override = """
+REGLA ESPECIAL PARA ESTILO MILOKIRA (cover card):
+- Slide 1 (index 0): layout "hero". headline = nombre de la especie o tema (≤4 palabras).
+  body OBLIGATORIO en este formato exacto (4 líneas con clave: valor):
+  "LUZ: [tipo de luz]
+RIEGO: [frecuencia]
+HUMEDAD: [nivel]
+DIFICULTAD: [nivel]"
+  Si el tema no es una especie, usa las 4 claves más relevantes del tema.
+  NO dejes body vacío para milokira — el cover muestra una tarjeta de datos.
+"""
+
     prompt = system_base + "\n\n" + _PROMPT.format(
         topic=topic,
         style=style,
         series_hint=series_hint,
         layout_rules=_LAYOUT_RULES,
-        quality_rules=_QUALITY_RULES,
+        quality_rules=_QUALITY_RULES + milokira_override,
         slide_count=sc,
         structure=structure,
     )

@@ -891,6 +891,138 @@ def _layout_editorial(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 # ── Milokira template compositor ─────────────────────────────────────────────
 
+def _milo_cover_template1(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
+    """
+    Template 1 — sage green cover slide:
+    · Full sage solid background
+    · Sparkle + 'PLANTA DEL MES' label (white)
+    · Bicolor headline: alternating lines in cream / lavender (Poppins ExtraBold, very large)
+    · Rounded cream card: plant photo left + key-value data table right
+    · @milokira centered at bottom in white
+    """
+    sage   = s["accent"]        # (125, 158, 125)
+    cream  = s["overlay"]       # (245, 240, 232)
+    lav    = s.get("lavender", (196, 181, 217))
+    white  = (255, 255, 255)
+    dg     = s["primary"]       # dark forest green
+
+    idx   = slide.get("index", 0)
+    total = slide.get("_total", 5)
+
+    # ── Background: solid sage ────────────────────────────────────────────────
+    base   = Image.new("RGB", (W, H), sage)
+    result = base.convert("RGBA")
+    draw   = ImageDraw.Draw(result)
+
+    _progress_dots(draw, s, idx, total)
+
+    cx = W // 2
+    mw = W - 120
+
+    # ── Sparkle + label ───────────────────────────────────────────────────────
+    _milo_sparkle(draw, cx, 88, size=24, color=(*white, 210))
+    fl    = _font("reg", 30)
+    label_txt = "PLANTA DEL MES"
+    bb    = draw.textbbox((0, 0), label_txt, font=fl)
+    draw.text((cx - (bb[2] - bb[0]) // 2, 120), label_txt, font=fl,
+              fill=(*white, 210))
+
+    # ── Bicolor headline: each WORD on its own line, cream / lavender alt ─────
+    headline = slide.get("headline", "").upper()
+    words    = headline.split()
+    colors   = [white, lav]  # alternate starting with white
+    y = 178
+    for i, word in enumerate(words[:4]):
+        # Auto-scale font to fit within mw
+        fsize = 132
+        fh    = _font("display", fsize)
+        bb    = draw.textbbox((0, 0), word, font=fh)
+        ww    = bb[2] - bb[0]
+        while ww > mw and fsize > 60:
+            fsize -= 6
+            fh     = _font("display", fsize)
+            bb     = draw.textbbox((0, 0), word, font=fh)
+            ww     = bb[2] - bb[0]
+        col = colors[i % 2]
+        draw.text((cx - ww // 2, y), word, font=fh, fill=(*col[:3], 255))
+        y += (bb[3] - bb[1]) + 6
+
+    # ── Species data card ─────────────────────────────────────────────────────
+    card_pad = 52
+    card_y1  = y + 32
+    card_y2  = int(H * 0.922)
+    card_h   = card_y2 - card_y1
+    card_w   = W - card_pad * 2
+
+    card_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
+    cd         = ImageDraw.Draw(card_layer)
+    cd.rounded_rectangle([card_pad, card_y1, W - card_pad, card_y2],
+                         radius=32, fill=(*cream[:3], 245))
+    result = Image.alpha_composite(result, card_layer)
+    draw   = ImageDraw.Draw(result)
+
+    # Photo occupies left 42% of card width, vertically centered
+    photo_size = min(int(card_w * 0.40), int(card_h * 0.82))
+    photo_x    = card_pad + 28
+    photo_y    = card_y1 + (card_h - photo_size) // 2
+
+    if bg_raw is not None:
+        pw, ph = bg_raw.size
+        sq     = min(pw, ph)
+        left   = (pw - sq) // 2
+        top_   = max(0, int(ph * 0.08))
+        crop   = bg_raw.crop((left, top_, left + sq, top_ + sq))
+        crop   = crop.resize((photo_size, photo_size), Image.LANCZOS)
+        crop   = ImageEnhance.Color(crop).enhance(1.18)
+        crop   = ImageEnhance.Contrast(crop).enhance(1.1)
+        # Rounded-rectangle mask (softer than full circle)
+        mask   = Image.new("L", (photo_size, photo_size), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, photo_size, photo_size],
+                                               radius=20, fill=255)
+        result.paste(crop.convert("RGBA"), (photo_x, photo_y), mask)
+        draw   = ImageDraw.Draw(result)
+
+    # Key-value data table in right section
+    data_x  = photo_x + photo_size + 28
+    data_mw = (W - card_pad - 24) - data_x
+    rows    = [l.strip().lstrip("•·-").strip() for l in slide.get("body", "").split("\n") if l.strip()]
+    fkey    = _font("reg", 24)
+    fval    = _font("lightb", 34)
+    n_rows  = min(len(rows), 4)
+    row_h   = 24 + 6 + 34 + 14  # key + gap + val + bottom
+    total_h = row_h * n_rows
+    row_y   = card_y1 + (card_h - total_h) // 2
+
+    for row in rows[:4]:
+        if ":" in row:
+            key, _, val = row.partition(":")
+            key = key.strip().upper()
+            val = val.strip()
+        else:
+            parts = row.split(None, 1)
+            key   = parts[0].upper() if parts else ""
+            val   = parts[1] if len(parts) > 1 else row
+
+        draw.text((data_x, row_y), key, font=fkey, fill=(*s["accent"][:3], 210))
+        # Wrap val to data_mw
+        fv_wrap = fval
+        bv = draw.textbbox((0, 0), val, font=fv_wrap)
+        if bv[2] - bv[0] > data_mw:
+            # Fallback: smaller font
+            fv_wrap = _font("lightb", 28)
+        draw.text((data_x, row_y + 30), val, font=fv_wrap, fill=(*dg[:3], 235))
+        row_y += row_h
+
+    # ── Handle white centered ─────────────────────────────────────────────────
+    fh2   = _font("reg", 38)
+    handle = s.get("handle", CHANNEL_HANDLE)
+    bb2   = draw.textbbox((0, 0), handle, font=fh2)
+    draw.text((cx - (bb2[2] - bb2[0]) // 2, H - 72), handle, font=fh2,
+              fill=(*white[:3], 200))
+
+    return result.convert("RGB")
+
+
 def _compose_milokira(
     slide: dict, bg_raw: Image.Image | None, s: dict
 ) -> Image.Image:
@@ -898,9 +1030,9 @@ def _compose_milokira(
     Maps slide layout → milokira Canva template variant:
 
     Template 1 (sage solid + species data card):
-      layout=card when the slide is a species/value slide
+      index == 0 / layout hero → cover slide
     Template 2 (cream + side leaves + CTA):
-      layout=hero, minimal
+      layout=hero on non-cover, minimal
     Template 3 (cream + side leaves + quote):
       layout=quote, pattern_interrupt
     Template 4 (cream + side leaves + numbered guide):
@@ -909,6 +1041,13 @@ def _compose_milokira(
     layout = slide.get("layout", "hero")
     idx    = slide.get("index", 0)
     total  = slide.get("_total", 5)
+
+    # ── Template 1: cover slide (index 0 or hero type with body data) ─────────
+    is_cover = idx == 0 or slide.get("type") == "hook"
+    if is_cover and slide.get("body", "").strip():
+        return _milo_cover_template1(slide, bg_raw, s)
+    if is_cover and layout in ("hero", "minimal"):
+        return _milo_cover_template1(slide, bg_raw, s)
 
     # ── Base: cream background with plant side panels ─────────────────────────
     base = Image.new("RGB", (W, H), s["overlay"])
