@@ -210,20 +210,31 @@ def _prep_photo(img: Image.Image, style: dict) -> Image.Image:
     Color-grade background photo to match the style palette.
     - Smart crop keeps plant subjects upper-center
     - Subtle style tint for visual cohesion
-    - Contrast + saturation boost for punch
+    - Contrast + saturation boost
+    - Top vignette prevents bright sky from bleeding through text areas
     - Soft unsharp mask for crispness
     """
     if img.size != (W, H):
         img = ImageOps.fit(img, (W, H), Image.LANCZOS, centering=(0.5, 0.28))
 
-    # Subtle color tint — blends the style palette into the photo
+    # Subtle color tint
     tint = Image.new("RGB", img.size, style["overlay2"])
     img  = Image.blend(img, tint, alpha=style["photo_tint"])
 
     # Contrast boost
     img = ImageEnhance.Contrast(img).enhance(1.12)
 
-    # Sharpening for print-quality crispness
+    # Top vignette — prevents bright sky/top areas bleeding through UI chrome
+    ov  = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ovd = ImageDraw.Draw(ov)
+    r, g, b = style["overlay"]
+    for y in range(int(H * 0.38)):
+        t = 1 - y / (H * 0.38)
+        a = int(t ** 1.6 * 210)
+        ovd.line([(0, y), (W, y)], fill=(r, g, b, a))
+    img = Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+    # Sharpening
     img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=70, threshold=3))
 
     return img
@@ -298,6 +309,41 @@ def _draw_text(
         draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, shadow_strength))
         draw.text((x, y), line, font=font, fill=color)
         y += lh + gap
+    return y
+
+
+def _draw_bullets(
+    draw: ImageDraw.Draw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    text_color: tuple,
+    bullet_color: tuple,
+    left: int,
+    right: int,
+    y: int,
+    gap: int = 20,
+) -> int:
+    """Render bullet lines (starting with • or ·) with a colored square bullet icon."""
+    max_w = right - left - 36  # indent for bullet+space
+    for raw_line in text.split("\n"):
+        line = raw_line.strip().lstrip("•·▪▶-").strip()
+        if not line:
+            y += gap // 2
+            continue
+        # Colored square bullet
+        bx, by = left + 4, y + 6
+        draw.rectangle([bx, by, bx + 10, by + 10], fill=(*bullet_color[:3], 220))
+        # Text after bullet, left-aligned with indent
+        tx = left + 24
+        tw = right - tx
+        wrapped = _wrap(line, font, tw)
+        for wline in wrapped:
+            bb = draw.textbbox((0, 0), wline, font=font)
+            lh = bb[3] - bb[1]
+            draw.text((tx + 2, y + 2), wline, font=font, fill=(0, 0, 0, 90))
+            draw.text((tx, y), wline, font=font, fill=text_color)
+            y += lh + gap // 2
+        y += gap // 3
     return y
 
 
@@ -416,25 +462,46 @@ def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
     pad = 52
     cx1, cx2 = pad, W - pad
-    cy1, cy2 = int(H * 0.26), int(H * 0.88)
+    cy1, cy2 = int(H * 0.22), int(H * 0.90)
 
     card = Image.new("RGBA", result.size, (0, 0, 0, 0))
     cd   = ImageDraw.Draw(card)
-    # Card fill
     cd.rounded_rectangle([cx1, cy1, cx2, cy2], radius=30, fill=s["card_bg"])
-    # Card border
     cd.rounded_rectangle([cx1, cy1, cx2, cy2], radius=30,
                           outline=(*s["accent"][:3], 60), width=1)
-    # Subtle inner glow at top of card
     cd.rounded_rectangle([cx1+1, cy1+1, cx2-1, cy1+80], radius=28,
                           fill=(*s["accent"][:3], 18))
     result = Image.alpha_composite(result.convert("RGBA"), card)
     draw   = ImageDraw.Draw(result)
 
     fh = _font(s["font_h"], s["size_h"] - 6)
-    fb = _font(s["font_b"], s["size_b"])
-    result = _text_block(draw, result, slide, s, cx=W // 2, mw=cx2 - cx1 - 60,
-                         ty=cy1 + 52, fh=fh, fb=fb, gap_h=16, gap_b=13)
+    fb = _font(s["font_b"], s["size_b"] + 4)  # larger for legibility
+
+    # Headline + accent line
+    ty = cy1 + 52
+    ey = _draw_text(draw, slide["headline"], fh, s["primary"], cx2 - cx1 - 60, W // 2, ty, gap=16)
+    ey += 4
+    if s.get("glow"):
+        result = result.convert("RGB")
+        result, ey = _glow_accent_line(result, s["accent"], W // 2, ey)
+        draw = ImageDraw.Draw(result)
+    else:
+        ey = _accent_line(draw, s["accent"], W // 2, ey)
+
+    # Body: styled bullets if has bullet markers, else plain centered text
+    body = slide.get("body", "")
+    if body:
+        has_bullets = any(
+            line.strip().startswith(("•", "·", "▪", "▶", "-"))
+            for line in body.split("\n") if line.strip()
+        )
+        if has_bullets:
+            _draw_bullets(draw, body, fb, s["secondary"], s["accent"],
+                          left=cx1 + 36, right=cx2 - 36, y=ey + 8, gap=24)
+        else:
+            _draw_text(draw, body, fb, s["secondary"], cx2 - cx1 - 72, W // 2, ey, gap=15)
+
+    _handle(draw, s)
     return result.convert("RGB")
 
 

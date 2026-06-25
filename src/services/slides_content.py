@@ -6,40 +6,54 @@ log = logging.getLogger(__name__)
 SlidStyle = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
 
 _LAYOUT_RULES = """
-Layout rules (apply automatically based on body length):
+Layout rules:
 - body empty or ≤5 words → layout: "hero"
-- body 1-2 sentences → layout: "split"
-- body with bullet points (lines starting with •) → layout: "card"
+- body 1-2 sentences (max 25 words) → layout: "split"
+- body with exactly 3-4 bullet points → layout: "card"
 - type pattern_interrupt or quote → layout: "quote"
 """
 
-_SYSTEM = """Eres un experto en contenido viral para Instagram y YouTube Shorts
-especializado en plantas de interior, cactus y suculentas.
+_SYSTEM = """Eres un experto en contenido viral para Instagram y YouTube Shorts.
 Generas carruseles educativos que combinan valor real con alta retención.
 Respondes SOLO con JSON válido, sin markdown, sin explicaciones."""
+
+_QUALITY_RULES = """
+REGLAS DE CALIDAD (obligatorias):
+1. ORTOGRAFÍA: revisa cada palabra antes de responder. Cero errores ortográficos.
+2. FRASES DIRECTAS: prohibido usar clichés como "pulgar verde", "manos en la tierra",
+   "mundo verde". Usa lenguaje directo y concreto.
+3. HEADLINE ≤10 palabras, sin comillas alrededor de frases comunes.
+4. BODY en layout "split": máximo 2 oraciones cortas, total ≤25 palabras.
+5. BODY en layout "card": exactamente 3-4 bullets. Cada bullet: "• texto ≤12 palabras".
+   Sin sub-bullets, sin texto extra fuera de bullets.
+6. BODY en layout "hero": vacío (string vacío "").
+7. No empieces bullets con artículos (el/la/los/las). Ve directo al dato.
+8. image_query en inglés: específico y visual, ej. "snake plant sansevieria pot windowsill".
+"""
 
 _PROMPT = """\
 Genera un set de 10 slides para Instagram sobre el tema: "{topic}"
 Estilo visual: {style}
 {series_hint}
 
-Sigue esta estructura probada:
-- Slide 1 (hook): headline impactante ≤8 palabras + emoji. Body vacío.
-- Slides 2-3 (contexto): por qué importa este tema
-- Slides 4-8 (valor): UNA especie/idea por slide con datos reales
-- Slide 9 (pattern_interrupt): stat o dato sorprendente con fuente
-- Slide 10 (cta): call to action + "Parte N en 48h" si es serie
+Estructura:
+- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: "hero"
+- Slides 2-3 (contexto): por qué importa. layout: "split" (máx 25 palabras body)
+- Slides 4-8 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales
+- Slide 9 (pattern_interrupt): stat sorprendente. layout: "quote"
+- Slide 10 (cta): call to action. layout: "hero"
 
 {layout_rules}
 
-Para cada slide que mencione una especie de planta:
-- Pon el nombre científico en "species" (ej: "Echeveria subsessilis")
-- image_type: "species" → se buscará en iNaturalist
-Para slides de ambiente/concepto:
-- image_type: "lifestyle"
-- image_query: query descriptivo en inglés para Pexels
+{quality_rules}
 
-Devuelve exactamente este JSON:
+Para slides de especie (image_type: "species"):
+- "species": nombre científico exacto (ej. "Sansevieria trifasciata")
+- image_query: nombre de la planta en inglés + contexto (ej. "snake plant pot indoor")
+Para slides de concepto (image_type: "lifestyle"):
+- image_query: descripción visual en inglés específica para Pexels
+
+JSON de respuesta:
 {{
   "title": "título del set completo",
   "hook_variants": ["variante A del hook", "variante B", "variante C"],
@@ -49,9 +63,9 @@ Devuelve exactamente este JSON:
       "type": "hook|context|value|pattern_interrupt|cta",
       "layout": "hero|split|card|quote",
       "headline": "texto del titular",
-      "body": "texto del cuerpo (puede tener \\n para saltos)",
+      "body": "texto del cuerpo",
       "image_type": "species|lifestyle",
-      "image_query": "query en inglés para Pexels si lifestyle",
+      "image_query": "query en inglés para Pexels",
       "species": "Nombre científico o null"
     }}
   ],
@@ -96,6 +110,7 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
         style=style,
         series_hint=series_hint,
         layout_rules=_LAYOUT_RULES,
+        quality_rules=_QUALITY_RULES,
     )
 
     log.info(f"Generando contenido para: {topic} ({style})")
