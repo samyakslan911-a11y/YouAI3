@@ -1131,6 +1131,7 @@ function SlidesGeneratorSection() {
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [generatingProfile, setGeneratingProfile] = useState(false);
+  const [liveLog, setLiveLog] = useState("");
 
   useEffect(() => {
     api.listProfiles().then(setProfiles).catch(() => {});
@@ -1164,8 +1165,11 @@ function SlidesGeneratorSection() {
     const iv = setInterval(async () => {
       const job = await api.getJob(jobId).catch(() => null);
       if (!job) return;
+      // Show latest log line so user sees real progress
+      if (job.logs?.length) setLiveLog(job.logs[job.logs.length - 1]);
       if (job.status === "done") {
         setStatus("done");
+        setLiveLog("");
         const clips = job.clips as { slug?: string }[];
         if (clips?.[0]?.slug) {
           const meta = await api.getSlides(clips[0].slug).catch(() => null);
@@ -1173,9 +1177,9 @@ function SlidesGeneratorSection() {
         }
         clearInterval(iv);
       } else if (job.status === "error") {
-        setStatus("error"); clearInterval(iv);
+        setStatus("error"); setLiveLog(""); clearInterval(iv);
       }
-    }, 3000);
+    }, 2000);
     return () => clearInterval(iv);
   }, [jobId, status]);
 
@@ -1362,20 +1366,28 @@ function SlidesGeneratorSection() {
           <AnimatePresence>
             {status === "running" && (
               <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="flex items-center gap-2 pt-1">
-                {GEN_STEPS.map((step, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <motion.span
-                        animate={{ opacity: [0.25, 1, 0.25], scale: [0.8, 1.1, 0.8] }}
-                        transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.32 }}
-                        className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"
-                      />
-                      <span className="text-zinc-500 text-xs">{step}</span>
+                className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  {GEN_STEPS.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <motion.span
+                          animate={{ opacity: [0.25, 1, 0.25], scale: [0.8, 1.1, 0.8] }}
+                          transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.32 }}
+                          className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"
+                        />
+                        <span className="text-zinc-500 text-xs">{step}</span>
+                      </div>
+                      {i < GEN_STEPS.length - 1 && <span className="text-zinc-700 text-xs">›</span>}
                     </div>
-                    {i < GEN_STEPS.length - 1 && <span className="text-zinc-700 text-xs">›</span>}
-                  </div>
-                ))}
+                  ))}
+                </div>
+                {liveLog && (
+                  <motion.p key={liveLog} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+                    className="text-zinc-600 text-xs font-mono pl-0.5 truncate">
+                    › {liveLog}
+                  </motion.p>
+                )}
               </motion.div>
             )}
             {status === "error" && (

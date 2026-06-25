@@ -169,29 +169,7 @@ def generate(
     src_summary = f"inat={image_sources['inat']} pexels={image_sources['pexels']} fallback={image_sources['fallback']}"
     _log(f"Imágenes listas: {src_summary}")
 
-    # ── 3. Assemble video ─────────────────────────────────────────────────────
-    # ── 3. Generate TTS narration ─────────────────────────────────────────────
-    audio_path: Path | None = None
-    try:
-        from . import slides_tts
-        narration = out_dir / "narration.mp3"
-        audio_path = slides_tts.generate_narration(content["slides"], narration)
-        if audio_path:
-            _log("Narración generada")
-    except Exception as e:
-        log.warning(f"TTS omitido: {e}")
-
-    # ── 4. Assemble video ─────────────────────────────────────────────────────
-    _log("Ensamblando video...")
-    video_path = out_dir / "video.mp4"
-    try:
-        slides_video.assemble_video(image_paths, video_path, audio_path=audio_path)
-        _log(f"Video listo: {video_path.name}")
-    except Exception as e:
-        log.error(f"Video assembly failed: {e}")
-        video_path = None
-
-    # ── 4. Write metadata ─────────────────────────────────────────────────────
+    # ── 3. Write metadata immediately — slides ready, video comes later ───────
     metadata = {
         "design_id":    design_id,
         "slug":         slug,
@@ -203,16 +181,43 @@ def generate(
         "hashtags":     content.get("hashtags", {}),
         "slides":       content.get("slides", []),
         "images":       [p.name for p in image_paths],
-        "video":        video_path.name if video_path else None,
+        "video":        None,
         "image_sources": image_sources,
         "created_at":   datetime.now(timezone.utc).isoformat(),
     }
-    (out_dir / "metadata.json").write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
+    meta_path = out_dir / "metadata.json"
+    meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     _save_design(design_id, topic, style, content, image_sources)
-    log.info(f"Slide set listo: {slug} ({len(image_paths)} imágenes)")
+    _log(f"Slides listos: {len(image_paths)} imágenes")
+
+    # ── 4. TTS + video in background — don't block the job response ──────────
+    import threading as _threading
+
+    def _make_video():
+        audio_path: Path | None = None
+        try:
+            from . import slides_tts
+            narration = out_dir / "narration.mp3"
+            audio_path = slides_tts.generate_narration(content["slides"], narration)
+            if audio_path:
+                log.info(f"[bg] Narración generada: {narration.name}")
+        except Exception as e:
+            log.warning(f"[bg] TTS omitido: {e}")
+
+        video_path = out_dir / "video.mp4"
+        try:
+            slides_video.assemble_video(image_paths, video_path, audio_path=audio_path)
+            log.info(f"[bg] Video listo: {video_path.name}")
+            # Patch metadata.json with video filename
+            current = json.loads(meta_path.read_text(encoding="utf-8"))
+            current["video"] = video_path.name
+            meta_path.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            log.error(f"[bg] Video assembly failed: {e}")
+
+    _threading.Thread(target=_make_video, daemon=True, name=f"video-{design_id}").start()
+
+    log.info(f"Slide set listo: {slug} ({len(image_paths)} imágenes) — video generándose en bg")
     return metadata
 
 
