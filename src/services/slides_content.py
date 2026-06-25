@@ -67,14 +67,21 @@ Devuelve exactamente este JSON:
 def generate_content(topic: str, style: SlidStyle, series_part: int | None = None, expert_context: str | None = None) -> dict:
     import time
     from google import genai
-    from google.genai import errors as genai_errors
+    from google.genai import errors as genai_errors, types
 
     api_key = os.environ["GOOGLE_API_KEY"]
     primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    fallbacks = ["gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"]
+    fallbacks = ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]
     models_to_try = [primary] + [m for m in fallbacks if m != primary]
 
     client = genai.Client(api_key=api_key)
+
+    # Disable thinking — structured JSON generation doesn't need it and it
+    # causes 2-5 min hangs. Only applies to 2.5-* models; ignored by others.
+    _no_think = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
+        max_output_tokens=8192,
+    )
 
     series_hint = ""
     if series_part:
@@ -96,7 +103,9 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     for model_name in models_to_try:
         for attempt in range(3):
             try:
-                response = client.models.generate_content(model=model_name, contents=prompt)
+                response = client.models.generate_content(
+                    model=model_name, contents=prompt, config=_no_think
+                )
                 log.info(f"  modelo usado: {model_name}")
                 raw = response.text.strip()
                 break
@@ -105,6 +114,16 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
                 wait = 8 * (attempt + 1)
                 log.warning(f"  {model_name} 503, reintentando en {wait}s (intento {attempt+1}/3)...")
                 time.sleep(wait)
+            except Exception as e:
+                # Model may not support thinking_config — retry without it
+                try:
+                    response = client.models.generate_content(model=model_name, contents=prompt)
+                    log.info(f"  modelo usado (sin thinking_config): {model_name}")
+                    raw = response.text.strip()
+                    break
+                except Exception:
+                    last_err = e
+                    break
         else:
             log.warning(f"  {model_name} agotado, probando siguiente modelo...")
             continue

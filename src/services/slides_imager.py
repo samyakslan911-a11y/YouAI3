@@ -146,7 +146,13 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
             except Exception:
                 pass
 
-        response = client.models.generate_content(model=model_name, contents=contents)
+        response = client.models.generate_content(
+            model=model_name, contents=contents,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+                max_output_tokens=16,
+            ),
+        )
         idx = int(response.text.strip().split()[0])
         idx = max(0, min(idx, len(candidates) - 1))
         log.info(f"  Gemini Vision picked photo {idx}/{len(candidates)-1}")

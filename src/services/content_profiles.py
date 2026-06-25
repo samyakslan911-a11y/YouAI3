@@ -116,15 +116,23 @@ def generate_profile(name: str) -> ContentProfile:
     fallbacks = ["gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"]
     models_to_try = [primary] + [m for m in fallbacks if m != primary]
 
+    from google.genai import types as _types
     client = genai.Client(api_key=api_key)
     prompt = _PROFILE_PROMPT.format(name=name)
+
+    _no_think = _types.GenerateContentConfig(
+        thinking_config=_types.ThinkingConfig(thinking_budget=0),
+        max_output_tokens=4096,
+    )
 
     last_err = None
     raw = None
     for model_name in models_to_try:
         for attempt in range(3):
             try:
-                response = client.models.generate_content(model=model_name, contents=prompt)
+                response = client.models.generate_content(
+                    model=model_name, contents=prompt, config=_no_think
+                )
                 log.info(f"Profile generated with model: {model_name}")
                 raw = response.text.strip()
                 break
