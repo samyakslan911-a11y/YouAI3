@@ -164,9 +164,17 @@ def generate(
                 image_sources["pexels"] += 1
 
             out_png = img_dir / f"{idx:02d}.png"
-            slides_composer.compose_slide(slide, bg, style, out_png,
-                                          total_slides=len(slides),
-                                          style_override=style_override)
+            try:
+                slides_composer.compose_slide(slide, bg, style, out_png,
+                                              total_slides=len(slides),
+                                              style_override=style_override)
+            except Exception as compose_err:
+                log.error(f"  Slide {idx:02d} compose failed ({slide.get('layout','?')}): {compose_err}")
+                # Fallback: gradient background with just the headline
+                slide_fallback = {**slide, "layout": "hero", "body": ""}
+                slides_composer.compose_slide(slide_fallback, None, style, out_png,
+                                              total_slides=len(slides),
+                                              style_override=style_override)
             image_paths.append(out_png)
 
     src_summary = f"inat={image_sources['inat']} pexels={image_sources['pexels']} fallback={image_sources['fallback']}"

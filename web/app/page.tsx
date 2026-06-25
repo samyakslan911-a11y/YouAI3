@@ -371,17 +371,9 @@ export default function App() {
               </button>
             </section>
 
-            {/* ── slides sections ── */}
-            <div className="max-w-5xl mx-auto px-6 pb-32 space-y-28">
-              <section id="slides-gen" className="scroll-mt-20">
-                <SectionLabel Icon={Sparkles} label="Generar carrusel" accent="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" iconGlow="bg-emerald-500/20" />
-                <SlidesGeneratorSection />
-              </section>
-              <WaveDivider />
-              <section id="slides-hist" className="scroll-mt-20">
-                <SectionLabel Icon={LayoutGrid} label="Carruseles anteriores" accent="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" iconGlow="bg-emerald-500/20" />
-                <SlidesHistorySection />
-              </section>
+            {/* ── slides studio ── */}
+            <div className="max-w-6xl mx-auto px-4 pb-20">
+              <SlidesCreatorStudio />
             </div>
           </motion.div>
         )}
@@ -1083,7 +1075,7 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
 }
 
 // ── Slides — Generator section ────────────────────────────────────────────────
-// Static swatches for built-in styles (gradient strings)
+// Static swatches for built-in styles
 const BUILTIN_SWATCHES: Record<string, string> = {
   botanico:    "from-[#040e06] via-[#0a1f0b] to-[#111600]",
   terracota:   "from-[#150300] via-[#280800] to-[#340e00]",
@@ -1093,11 +1085,22 @@ const BUILTIN_SWATCHES: Record<string, string> = {
   ivory:       "from-[#130b05] via-[#221508] to-[#2e1c0a]",
 };
 
+const DEFAULT_STYLES: StyleItem[] = [
+  { id: "botanico",    name: "Botánico",    accent_hex: "#d2b234", is_custom: false },
+  { id: "terracota",   name: "Terracota",   accent_hex: "#eb943e", is_custom: false },
+  { id: "aesthetic",   name: "Aesthetic",   accent_hex: "#ecb2da", is_custom: false },
+  { id: "dark_jungle", name: "Dark Jungle", accent_hex: "#48e673", is_custom: false },
+  { id: "sage",        name: "Sage",        accent_hex: "#8abe69", is_custom: false },
+  { id: "ivory",       name: "Ivory",       accent_hex: "#c8a869", is_custom: false },
+];
+
 const STYLE_RING: Record<string, string> = {
   botanico:    "ring-yellow-500/40 bg-yellow-500/10 text-yellow-300",
   terracota:   "ring-orange-400/40 bg-orange-500/10 text-orange-300",
   aesthetic:   "ring-pink-300/40 bg-pink-500/10 text-pink-200",
   dark_jungle: "ring-emerald-400/40 bg-emerald-500/10 text-emerald-300",
+  sage:        "ring-green-400/40 bg-green-500/10 text-green-300",
+  ivory:       "ring-amber-300/40 bg-amber-500/10 text-amber-200",
 };
 
 const STYLE_DOT: Record<string, string> = {
@@ -1105,11 +1108,11 @@ const STYLE_DOT: Record<string, string> = {
   terracota:   "bg-orange-400",
   aesthetic:   "bg-fuchsia-300",
   dark_jungle: "bg-emerald-400",
+  sage:        "bg-green-400",
+  ivory:       "bg-amber-300",
 };
 
-const GEN_STEPS = ["Contenido", "Fotos", "Slides", "Audio"];
-
-function SlidesGeneratorSection() {
+function SlidesCreatorStudio() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("botanico");
   const [seriesPart, setSeriesPart] = useState<number | undefined>();
@@ -1127,9 +1130,10 @@ function SlidesGeneratorSection() {
   const [newProfileName, setNewProfileName] = useState("");
   const [generatingProfile, setGeneratingProfile] = useState(false);
   const [liveLog, setLiveLog] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // Dynamic styles
-  const [styles, setStyles] = useState<StyleItem[]>([]);
+  // Dynamic styles — init with defaults so swatches show immediately
+  const [styles, setStyles] = useState<StyleItem[]>(DEFAULT_STYLES);
   const [showStyleModal, setShowStyleModal] = useState(false);
   const [newStyleName, setNewStyleName] = useState("");
   const [newStyleAccent, setNewStyleAccent] = useState("#5a9e6a");
@@ -1137,9 +1141,25 @@ function SlidesGeneratorSection() {
   const [newStyleDarkness, setNewStyleDarkness] = useState("suave");
   const [creatingStyle, setCreatingStyle] = useState(false);
 
+  // History
+  type HistSet = { slug: string; title: string; style: string; created_at: string; image_count: number; has_video: boolean };
+  const [history, setHistory] = useState<HistSet[]>([]);
+  const [histLoading, setHistLoading] = useState(true);
+  const [viewingSlug, setViewingSlug] = useState<string | null>(null);
+  const [viewIdx, setViewIdx] = useState(0);
+
+  function refreshHistory() {
+    api.listSlides().then(r => { setHistory(r.sets); setHistLoading(false); }).catch(() => setHistLoading(false));
+  }
+
   useEffect(() => {
     api.listProfiles().then(setProfiles).catch(() => {});
-    api.listStyles().then(d => setStyles(d.styles)).catch(() => {});
+    // Merge default styles with any custom styles from API
+    api.listStyles().then(d => {
+      const custom = d.styles.filter(s => s.is_custom);
+      setStyles([...DEFAULT_STYLES, ...custom]);
+    }).catch(() => {}); // keep defaults on failure
+    refreshHistory();
   }, []);
 
   async function createCustomStyle() {
@@ -1202,11 +1222,12 @@ function SlidesGeneratorSection() {
         const clips = job.clips as { slug?: string }[];
         if (clips?.[0]?.slug) {
           const meta = await api.getSlides(clips[0].slug).catch(() => null);
-          if (meta) { setResult(meta); setSlideIdx(0); }
+          if (meta) { setResult(meta); setSlideIdx(0); refreshHistory(); }
         }
         clearInterval(iv);
       } else if (job.status === "error") {
-        setStatus("error"); setLiveLog(""); clearInterval(iv);
+        const lastLog = job.logs?.length ? job.logs[job.logs.length - 1] : "";
+        setStatus("error"); setLiveLog(lastLog); setErrorMsg(job.error ?? ""); clearInterval(iv);
       }
     }, 2000);
     return () => clearInterval(iv);
@@ -1214,7 +1235,7 @@ function SlidesGeneratorSection() {
 
   async function generate() {
     if (!topic.trim()) return;
-    setStatus("running"); setResult(null);
+    setStatus("running"); setResult(null); setViewingSlug(null); setErrorMsg("");
     const { job_id } = await api.createSlides(topic.trim(), style, seriesPart, selectedProfile ?? "");
     setJobId(job_id);
   }
@@ -1242,15 +1263,31 @@ function SlidesGeneratorSection() {
     }
   }
 
+  const GEN_STEPS = ["Contenido", "Fotos", "Slides"];
+
+  // History viewer open
+  const histViewed = history.find(s => s.slug === viewingSlug);
+
   return (
-    <div className="space-y-5">
+    <div className="relative">
+      {/* Studio 2-column grid */}
+      <div className="grid lg:grid-cols-[390px_1fr] min-h-[680px] rounded-2xl overflow-hidden border border-zinc-800/60 bg-gradient-to-br from-zinc-900/95 to-zinc-950">
 
-      {/* ── Creator card ─────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-950">
+      {/* ═══════════════ LEFT PANEL — Controls ═══════════════ */}
+      <div className="border-r border-zinc-800/50 flex flex-col">
+        {/* Header */}
+        <div className="px-5 pt-5 pb-3 border-b border-zinc-800/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <span className="text-zinc-200 font-semibold text-sm">Generar carrusel</span>
+          </div>
+        </div>
+
+        <div className="flex-1 p-5 space-y-4 overflow-y-auto">
         {/* ambient top glow */}
-        <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[28rem] h-40 bg-emerald-500/6 blur-3xl" />
-
-        <div className="relative p-5 space-y-4">
+        <div className="pointer-events-none absolute -top-32 left-0 w-80 h-40 bg-emerald-500/4 blur-3xl" />
 
           {/* Profiles ─────────────────────────────────────────────────────── */}
           <div className="space-y-2.5">
@@ -1527,134 +1564,220 @@ function SlidesGeneratorSection() {
               </motion.div>
             )}
             {status === "error" && (
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="text-red-400 text-sm flex items-center gap-2">
-                <XCircle className="w-4 h-4 shrink-0" /> Error generando slides. Revisa los logs.
-              </motion.p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-1.5">
+                <p className="text-red-400 text-sm flex items-center gap-2 font-medium">
+                  <XCircle className="w-4 h-4 shrink-0" /> Error generando slides
+                </p>
+                {liveLog && (
+                  <p className="text-zinc-500 text-xs font-mono">último paso: {liveLog}</p>
+                )}
+                {errorMsg && (
+                  <p className="text-red-400/60 text-xs font-mono break-all leading-relaxed">{errorMsg}</p>
+                )}
+              </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </div>
+        </div>{/* end flex-1 scroll */}
+      </div>{/* end LEFT PANEL */}
 
-      {/* ── Result viewer ─────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {result && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-            className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-hidden">
+      {/* ═══════════════ RIGHT PANEL — Dynamic ═══════════════ */}
+      <div className="flex flex-col overflow-hidden">
+        <AnimatePresence mode="wait">
 
-            {/* Header */}
-            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-zinc-800/60">
-              <div>
-                <h3 className="text-zinc-100 font-semibold text-base leading-tight">{result.title}</h3>
-                <p className="text-zinc-500 text-xs mt-1">{result.images.length} slides · {result.style}</p>
+          {/* ── GENERATING: skeleton slides ── */}
+          {status === "running" && (
+            <motion.div key="generating"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="flex-1 p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                <span className="text-zinc-400 text-sm font-medium truncate">Generando: {topic}</span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {Object.entries(((result as Record<string, unknown>).image_sources ?? {}) as Record<string, number>).map(([src, n]) =>
-                  n > 0 ? (
-                    <span key={src} className="bg-zinc-800 text-zinc-500 text-[11px] px-2 py-0.5 rounded-full border border-zinc-700/50">
-                      {src} {n}
-                    </span>
-                  ) : null
-                )}
-              </div>
-            </div>
-
-            {/* Carousel */}
-            <div className="px-6 py-5 space-y-4">
-              <div className="flex items-center justify-center gap-5">
-                <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))} disabled={slideIdx === 0}
-                  className="p-2.5 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 transition-all border border-zinc-700/40">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <div className="relative cursor-zoom-in group" onClick={() => setLightboxOpen(true)}>
-                  <div className="w-72 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/5 group-hover:ring-emerald-500/25 transition-all duration-300 group-hover:shadow-emerald-900/30">
-                    <img
-                      src={api.slideImageUrl(result.slug, result.images[slideIdx])}
-                      alt={`Slide ${slideIdx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <motion.div key={i}
+                    initial={{ opacity: 0, scale: 0.9, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: i * 0.055, duration: 0.3 }}
+                    className="aspect-[4/5] rounded-xl bg-zinc-800/70 overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-zinc-700/20 to-zinc-800/60 animate-pulse" />
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent"
+                      animate={{ x: ["-100%", "200%"] }}
+                      transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
                     />
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs font-medium flex items-center gap-1.5">
-                      <ImageIcon className="w-3.5 h-3.5" /> Pantalla completa
-                    </div>
-                  </div>
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-white/70 text-xs font-mono">
-                    {slideIdx + 1} / {result.images.length}
-                  </div>
-                </div>
+                    <span className="absolute bottom-2 left-2 text-zinc-600 text-[10px] font-mono">{String(i + 1).padStart(2, "0")}</span>
+                  </motion.div>
+                ))}
+              </div>
+              {liveLog && (
+                <motion.p key={liveLog} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className="text-zinc-500 text-xs font-mono">
+                  › {liveLog}
+                </motion.p>
+              )}
+            </motion.div>
+          )}
 
-                <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))} disabled={slideIdx === result.images.length - 1}
-                  className="p-2.5 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 transition-all border border-zinc-700/40">
-                  <ChevronRight className="w-4 h-4" />
+          {/* ── DONE: carousel viewer ── */}
+          {status === "done" && result && (
+            <motion.div key="viewer"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col overflow-hidden">
+              {/* Viewer header */}
+              <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-zinc-800/40">
+                <div>
+                  <h3 className="text-zinc-100 font-semibold text-sm leading-snug line-clamp-1">{result.title}</h3>
+                  <p className="text-zinc-500 text-[11px] mt-0.5">{result.images.length} slides · {result.style}</p>
+                </div>
+                <button onClick={() => { setStatus("idle"); setResult(null); }}
+                  className="text-zinc-600 hover:text-zinc-300 p-1.5 hover:bg-zinc-800 rounded-lg transition-colors">
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-
-              {/* Dot strip */}
-              <div className="flex justify-center gap-1">
-                {result.images.map((_, i) => (
-                  <button key={i} onClick={() => setSlideIdx(i)}
-                    className={`rounded-full transition-all duration-200 ${
-                      i === slideIdx ? "w-5 h-1.5 bg-emerald-400" : "w-1.5 h-1.5 bg-zinc-700 hover:bg-zinc-500"
-                    }`} />
-                ))}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 flex-wrap pt-1">
-                <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
-                  <Download className="w-3.5 h-3.5" /> Slide {slideIdx + 1}
-                </a>
-                <a href={api.slideZipUrl(result.slug)} download
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
-                  <Download className="w-3.5 h-3.5" /> ZIP completo
-                </a>
-                {result.video && (
-                  <a href={api.slideVideoUrl(result.slug)} download
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-all">
-                    <Download className="w-3.5 h-3.5" /> Video + audio
-                  </a>
-                )}
-                {(["instagram", "tiktok", "pinterest"] as const).map(p => (
-                  <button key={p} onClick={() => copyHashtags(p)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
-                    <Copy className="w-3.5 h-3.5" />
-                    {copied === p ? "¡Copiado!" : `# ${p}`}
+              {/* Carousel */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                <div className="flex items-center justify-center gap-4">
+                  <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))} disabled={slideIdx === 0}
+                    className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 border border-zinc-700/40 transition-all">
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
-                ))}
-                {result.video && (["instagram", "tiktok"] as const).map(p => (
-                  <button key={p} onClick={() => publishSlides(p)} disabled={publishState[p] === "loading"}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40 disabled:opacity-40">
-                    {publishState[p] === "loading" ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                     : publishState[p] === "done"    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                     : <Upload className="w-3.5 h-3.5" />}
-                    {p === "instagram" ? "IG Reel" : "TikTok"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Hook variants */}
-              {result.hook_variants?.length > 0 && (
-                <div className="space-y-1.5 pt-2 border-t border-zinc-800/60">
-                  <p className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium mb-2">Variantes del hook</p>
-                  {result.hook_variants.map((h, i) => (
-                    <div key={i} className="flex items-start gap-2 bg-zinc-800/40 hover:bg-zinc-800/70 rounded-xl px-3.5 py-2.5 transition-colors group/hook border border-zinc-700/30">
-                      <span className="text-zinc-600 font-mono text-xs shrink-0 mt-0.5">{String.fromCharCode(65 + i)}</span>
-                      <span className="text-zinc-300 text-xs leading-relaxed">{h}</span>
-                      <button onClick={() => navigator.clipboard.writeText(h)}
-                        className="ml-auto text-zinc-700 hover:text-zinc-300 transition-colors shrink-0 opacity-0 group-hover/hook:opacity-100">
-                        <Copy size={11} />
-                      </button>
+                  <div className="relative cursor-zoom-in group" onClick={() => setLightboxOpen(true)}>
+                    <div className="w-64 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/5 group-hover:ring-emerald-500/20 transition-all">
+                      <img src={api.slideImageUrl(result.slug, result.images[slideIdx])}
+                        alt={`Slide ${slideIdx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
                     </div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1 text-white text-xs flex items-center gap-1.5">
+                        <ImageIcon className="w-3 h-3" /> Ampliar
+                      </div>
+                    </div>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 rounded-full px-2 py-0.5 text-white/60 text-[11px] font-mono">
+                      {slideIdx + 1} / {result.images.length}
+                    </div>
+                  </div>
+                  <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))} disabled={slideIdx === result.images.length - 1}
+                    className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 border border-zinc-700/40 transition-all">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Dots */}
+                <div className="flex justify-center gap-1">
+                  {result.images.map((_, i) => (
+                    <button key={i} onClick={() => setSlideIdx(i)}
+                      className={`rounded-full transition-all duration-200 ${i === slideIdx ? "w-5 h-1.5 bg-emerald-400" : "w-1.5 h-1.5 bg-zinc-700 hover:bg-zinc-500"}`} />
+                  ))}
+                </div>
+                {/* Actions */}
+                <div className="flex gap-1.5 flex-wrap pt-0.5">
+                  <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-all border border-zinc-700/40">
+                    <Download className="w-3 h-3" /> Slide {slideIdx + 1}
+                  </a>
+                  <a href={api.slideZipUrl(result.slug)} download
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-all border border-zinc-700/40">
+                    <Download className="w-3 h-3" /> ZIP
+                  </a>
+                  {result.video && (
+                    <a href={api.slideVideoUrl(result.slug)} download
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-900/30 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 text-xs transition-all">
+                      <Download className="w-3 h-3" /> Video
+                    </a>
+                  )}
+                  {(["instagram", "tiktok", "pinterest"] as const).map(p => (
+                    <button key={p} onClick={() => copyHashtags(p)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-all border border-zinc-700/40">
+                      <Copy className="w-3 h-3" />
+                      {copied === p ? "✓" : `#${p}`}
+                    </button>
+                  ))}
+                </div>
+                {/* Hook variants */}
+                {result.hook_variants?.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-zinc-800/40">
+                    <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-medium mb-1.5">Variantes del hook</p>
+                    {result.hook_variants.map((h, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-zinc-800/40 rounded-lg px-3 py-2 group/hook border border-zinc-700/20">
+                        <span className="text-zinc-600 font-mono text-[10px] shrink-0 mt-0.5">{String.fromCharCode(65+i)}</span>
+                        <span className="text-zinc-300 text-xs leading-snug">{h}</span>
+                        <button onClick={() => navigator.clipboard.writeText(h)}
+                          className="ml-auto text-zinc-700 hover:text-zinc-300 shrink-0 opacity-0 group-hover/hook:opacity-100 transition-opacity">
+                          <Copy size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── IDLE / HISTORY: thumbnail grid ── */}
+          {(status === "idle" || status === "error") && (
+            <motion.div key="history"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="flex-1 overflow-y-auto p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-3.5 h-3.5 text-zinc-500" />
+                  <span className="text-zinc-500 text-xs uppercase tracking-widest font-medium">Carruseles</span>
+                  {history.length > 0 && (
+                    <span className="bg-zinc-800 text-zinc-500 text-[10px] px-1.5 py-0.5 rounded-full">{history.length}</span>
+                  )}
+                </div>
+              </div>
+
+              {histLoading ? (
+                <div className="grid grid-cols-3 gap-2.5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="aspect-[4/5] rounded-xl bg-zinc-800/60 animate-pulse" />
+                  ))}
+                </div>
+              ) : history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-zinc-600" />
+                  </div>
+                  <p className="text-zinc-500 text-sm font-medium">Sin carruseles aún</p>
+                  <p className="text-zinc-700 text-xs">Escribe un tema y genera tu primer carrusel</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2.5">
+                  {history.map(s => (
+                    <button key={s.slug} onClick={() => {
+                      api.getSlides(s.slug).then(meta => {
+                        setResult(meta); setSlideIdx(0); setStatus("done"); setViewingSlug(s.slug);
+                      }).catch(() => {});
+                    }}
+                      className="group relative aspect-[4/5] rounded-xl overflow-hidden border border-zinc-800/60 hover:border-zinc-600/80 transition-all hover:shadow-lg hover:shadow-black/40">
+                      <img
+                        src={api.slideImageUrl(s.slug, "00.png")}
+                        alt={s.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-400"
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
+                        <p className="text-white text-[10px] font-semibold leading-tight line-clamp-2">{s.title}</p>
+                        <p className="text-white/40 text-[9px] mt-0.5">{s.image_count} slides</p>
+                      </div>
+                      {s.has_video && (
+                        <div className="absolute top-1.5 right-1.5 bg-emerald-500/80 rounded-full p-0.5">
+                          <Play className="w-2.5 h-2.5 text-white fill-white" />
+                        </div>
+                      )}
+                    </button>
                   ))}
                 </div>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>{/* end RIGHT PANEL */}
+
+      </div>{/* end 2-col grid */}
 
       {/* Fullscreen lightbox */}
       <AnimatePresence>
@@ -1667,94 +1790,6 @@ function SlidesGeneratorSection() {
           />
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Slides — History section ──────────────────────────────────────────────────
-function SlidesHistorySection() {
-  const [sets, setSets] = useState<{ slug: string; title: string; created_at: string; image_count: number; has_video: boolean }[]>([]);
-  const [viewing, setViewing] = useState<string | null>(null);
-  const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
-  const [slideIdx, setSlideIdx] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.listSlides().then(r => { setSets(r.sets); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
-
-  async function openSet(slug: string) {
-    const meta = await api.getSlides(slug).catch(() => null);
-    if (meta) { setResult(meta); setViewing(slug); setSlideIdx(0); }
-  }
-
-  if (loading) return <div className="shimmer h-40 rounded-2xl" />;
-
-  if (!sets.length) return (
-    <div className="glass rounded-2xl py-20 text-center border-dashed">
-      <LayoutGrid size={36} className="mx-auto mb-4 text-zinc-700" />
-      <p className="text-zinc-500 font-medium mb-1">Sin carruseles aún</p>
-      <p className="text-zinc-700 text-sm">Genera tu primer carrusel arriba</p>
-    </div>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {sets.map(s => (
-          <button key={s.slug} onClick={() => openSet(s.slug)}
-            className={`text-left bg-zinc-900 border rounded-xl p-4 transition-all space-y-2 ${viewing === s.slug ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "border-zinc-800 hover:border-zinc-700"}`}>
-            <p className="text-zinc-200 text-sm font-medium truncate">{s.title}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600 text-xs">{s.image_count} slides</span>
-              {s.has_video && <span className="text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">+ video</span>}
-            </div>
-            <p className="text-zinc-700 text-[11px]">{new Date(s.created_at).toLocaleDateString()}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Inline viewer for selected set */}
-      {result && viewing && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-zinc-900 border border-emerald-500/10 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-zinc-200 font-medium">{result.title}</h3>
-            <button onClick={() => { setViewing(null); setResult(null); }} className="text-zinc-600 hover:text-zinc-400 text-xs">Cerrar ×</button>
-          </div>
-          <div className="relative flex items-center justify-center gap-4">
-            <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))}
-              className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full disabled:opacity-20" disabled={slideIdx === 0}>
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="w-56 aspect-[4/5] rounded-xl overflow-hidden bg-zinc-800">
-              <img src={api.slideImageUrl(result.slug, result.images[slideIdx])} alt={`Slide ${slideIdx + 1}`} className="w-full h-full object-cover" />
-            </div>
-            <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))}
-              className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full disabled:opacity-20" disabled={slideIdx === result.images.length - 1}>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex justify-center gap-1">
-            {result.images.map((_, i) => (
-              <button key={i} onClick={() => setSlideIdx(i)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === slideIdx ? "bg-emerald-500 w-4" : "bg-zinc-700"}`} />
-            ))}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
-              <Download className="w-3.5 h-3.5" /> Slide {slideIdx + 1}
-            </a>
-            {result.video && (
-              <a href={api.slideVideoUrl(result.slug)} download
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-500/20 text-emerald-400 text-xs transition-all">
-                <Download className="w-3.5 h-3.5" /> Video MP4
-              </a>
-            )}
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }

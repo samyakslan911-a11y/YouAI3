@@ -134,14 +134,16 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
                 log.warning(f"  {model_name} 503, reintentando en {wait}s (intento {attempt+1}/3)...")
                 time.sleep(wait)
             except Exception as e:
+                log.warning(f"  {model_name} error con thinking_config: {e!r}")
                 # Model may not support thinking_config — retry without it
                 try:
                     response = client.models.generate_content(model=model_name, contents=prompt)
                     log.info(f"  modelo usado (sin thinking_config): {model_name}")
                     raw = response.text.strip()
                     break
-                except Exception:
-                    last_err = e
+                except Exception as e2:
+                    log.warning(f"  {model_name} fallback también falló: {e2!r}")
+                    last_err = e2
                     break
         else:
             log.warning(f"  {model_name} agotado, probando siguiente modelo...")
