@@ -110,6 +110,18 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                 except Exception as te:
                     log(f"Thumbnail omitido: {te}")
 
+                # Silence removal
+                try:
+                    from src.services import silence
+                    silenced = clip_path.with_name(clip_path.stem + "_ns.mp4")
+                    result_path = silence.remove_silence(clip_path, silenced)
+                    if result_path != clip_path:
+                        clip_path.unlink()
+                        silenced.rename(clip_path)
+                        log(f"Silencio eliminado: {clip_path.name}")
+                except Exception as se:
+                    log(f"Silence removal omitido: {se}")
+
                 # Upload to R2
                 try:
                     from src.services import storage

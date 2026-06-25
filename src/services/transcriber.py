@@ -60,9 +60,24 @@ def _transcribe_gemini(video_path: Path) -> list[dict]:
 
 
 def _transcribe_whisper(video_path: Path) -> list[dict]:
-    import whisper
+    audio_path = _extract_audio(video_path)
 
-    _model_cache = {}
+    # Prefer faster-whisper (GPU/CPU optimized, supports large-v3)
+    try:
+        from faster_whisper import WhisperModel
+        log.info(f"Transcribiendo con faster-whisper '{WHISPER_MODEL}'...")
+        model = WhisperModel(WHISPER_MODEL, device="auto", compute_type="auto")
+        segments, _ = model.transcribe(str(audio_path), beam_size=5, language="es")
+        return [
+            {"text": s.text.strip(), "start": s.start, "end": s.end}
+            for s in segments if s.text.strip()
+        ]
+    except ImportError:
+        pass
+
+    # Fallback to openai-whisper
+    import whisper
+    _model_cache: dict = {}
 
     def _load(name: str):
         if name not in _model_cache:
@@ -71,7 +86,7 @@ def _transcribe_whisper(video_path: Path) -> list[dict]:
         return _model_cache[name]
 
     model = _load(WHISPER_MODEL)
-    result = model.transcribe(str(video_path), verbose=False)
+    result = model.transcribe(str(audio_path), verbose=False)
     return [
         {"text": s["text"].strip(), "start": s["start"], "end": s["end"]}
         for s in result["segments"]
