@@ -652,10 +652,11 @@ def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:  # noq
 
     # Large decorative quote mark
     fq  = _font("bold", 220)
-    bb  = draw.textbbox((0, 0), """, font=fq)
+    _dq = "“"  # left double curly quote — drawn as decoration
+    bb  = draw.textbbox((0, 0), _dq, font=fq)
     qx  = W // 2 - (bb[2] - bb[0]) // 2
     quote_alpha = 55 if light else 35
-    draw.text((qx, int(H * 0.06)), """, font=fq,
+    draw.text((qx, int(H * 0.06)), _dq, font=fq,
               fill=(*s["bloom_color"][:3], quote_alpha))
 
     fh  = _font(s["font_h"], s["size_h"] + 12)

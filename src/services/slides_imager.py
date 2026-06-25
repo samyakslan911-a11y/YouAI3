@@ -211,7 +211,20 @@ def fetch_image(
             if len(candidates) >= MAX_CANDIDATES:
                 break
 
-    # 2b. Retry with shorter query only if we have 0 results
+    # 2b. iNaturalist fallback for lifestyle slides when Pexels found nothing
+    # If the image_query starts with a botanical/animal term, try iNat with it
+    if len(candidates) == 0 and image_type == "lifestyle":
+        first_word = query.split()[0] if query else ""
+        if first_word and len(first_word) > 3:
+            urls = _inat_photos(first_word, n=4)
+            for i, url in enumerate(urls):
+                dest = tmp_dir / f"inat_fallback_{i}.jpg"
+                if _download(url, dest, top_bias=0.3):
+                    candidates.append(dest)
+                if len(candidates) >= MAX_CANDIDATES:
+                    break
+
+    # 2c. Retry with shorter query only if still 0 results
     if len(candidates) == 0 and " " in pexels_query:
         short_q = " ".join(pexels_query.split()[:3])
         urls = _pexels_photos(short_q, n=3)

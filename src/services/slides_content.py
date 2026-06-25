@@ -81,9 +81,18 @@ REGLAS DE IMAGE_QUERY (crítico para calidad visual):
 - Para cada slide usa una query DISTINTA, específica al contenido de ese slide.
 - Evita queries genéricas. Pexels tiene millones de fotos — sé específico y encuentra la exacta.
 
+REGLA DE image_type (crítico):
+- Si el tema trata sobre una especie concreta (lithops, monstera, suculenta, etc.), los slides
+  que MUESTRAN esa planta deben usar image_type: "species" y "species": nombre científico.
+  Pexels NO tiene buenas fotos de especies nicho — iNaturalist sí.
+- Solo usa image_type: "lifestyle" para slides que muestran acciones, suelo, manos, conceptos.
+- EJEMPLO para tema "cuidado de lithops":
+  INCORRECTO: image_type: "lifestyle", query: "lithops succulent close-up" → Pexels no tiene lithops
+  CORRECTO:   image_type: "species", species: "Lithops", query: "lithops stones succulent top view"
+
 Para slides de especie (image_type: "species"):
-- "species": nombre científico exacto (ej. "Sansevieria trifasciata")
-- image_query: nombre común inglés + parte visual + ambiente (ej. "snake plant sansevieria trifasciata narrow leaves indoor pot")
+- "species": nombre científico exacto (ej. "Lithops", "Sansevieria trifasciata")
+- image_query: nombre común inglés + parte visual + ambiente
 Para slides de concepto (image_type: "lifestyle"):
 - image_query: acción/objeto específico + contexto + detalle visual (ej. "overwatered plant drooping yellowing leaves close-up")
 
