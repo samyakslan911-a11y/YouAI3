@@ -42,7 +42,11 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
             ctx = browser.new_context()
-            ctx.add_cookies(json.loads(cookies_path.read_text()))
+            raw = json.loads(cookies_path.read_text(encoding="utf-8"))
+            # unwrap double array (EditThisCookie fork export format)
+            if isinstance(raw, list) and raw and isinstance(raw[0], list):
+                raw = raw[0]
+            ctx.add_cookies(raw)
             page = ctx.new_page()
 
             page.goto("https://www.tiktok.com/upload")
