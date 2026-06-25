@@ -7,7 +7,7 @@ import {
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
   ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
   CalendarClock, CheckCircle2, XCircle, Trash2, LayoutGrid, Copy,
-  ChevronLeft, ImageIcon, Scissors, X, Palette, Check,
+  ChevronLeft, ImageIcon, Scissors, X, Palette, Check, Pencil,
 } from "lucide-react";
 
 // ── Slide lightbox ─────────────────────────────────────────────────────────────
@@ -1146,6 +1146,13 @@ function SlidesCreatorStudio() {
   const [liveLog, setLiveLog] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Slide text editor
+  const [editingSlide, setEditingSlide] = useState(false);
+  const [editHeadline, setEditHeadline] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [imgCacheBust, setImgCacheBust] = useState<Record<number, number>>({});
+
   // Dynamic styles — init with defaults so swatches show immediately
   const [styles, setStyles] = useState<StyleItem[]>(DEFAULT_STYLES);
   const [showStyleModal, setShowStyleModal] = useState(false);
@@ -1848,13 +1855,14 @@ function SlidesCreatorStudio() {
               {/* Carousel */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
                 <div className="flex items-center justify-center gap-4">
-                  <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))} disabled={slideIdx === 0}
+                  <button onClick={() => { setSlideIdx(i => Math.max(0, i - 1)); setEditingSlide(false); }} disabled={slideIdx === 0}
                     className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 border border-zinc-700/40 transition-all">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <div className="relative cursor-zoom-in group" onClick={() => setLightboxOpen(true)}>
                     <div className="w-64 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/5 group-hover:ring-emerald-500/20 transition-all">
-                      <img src={api.slideImageUrl(result.slug, result.images[slideIdx])}
+                      <img
+                        src={api.slideImageUrl(result.slug, result.images[slideIdx]) + (imgCacheBust[slideIdx] ? `?t=${imgCacheBust[slideIdx]}` : "")}
                         alt={`Slide ${slideIdx + 1}`}
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
                     </div>
@@ -1867,7 +1875,7 @@ function SlidesCreatorStudio() {
                       {slideIdx + 1} / {result.images.length}
                     </div>
                   </div>
-                  <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))} disabled={slideIdx === result.images.length - 1}
+                  <button onClick={() => { setSlideIdx(i => Math.min(result.images.length - 1, i + 1)); setEditingSlide(false); }} disabled={slideIdx === result.images.length - 1}
                     className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 border border-zinc-700/40 transition-all">
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -1875,7 +1883,7 @@ function SlidesCreatorStudio() {
                 {/* Dots */}
                 <div className="flex justify-center gap-1">
                   {result.images.map((_, i) => (
-                    <button key={i} onClick={() => setSlideIdx(i)}
+                    <button key={i} onClick={() => { setSlideIdx(i); setEditingSlide(false); }}
                       className={`rounded-full transition-all duration-200 ${i === slideIdx ? "w-5 h-1.5 bg-emerald-400" : "w-1.5 h-1.5 bg-zinc-700 hover:bg-zinc-500"}`} />
                   ))}
                 </div>
@@ -1903,6 +1911,61 @@ function SlidesCreatorStudio() {
                     </button>
                   ))}
                 </div>
+                {/* ── Text editor ── */}
+                <div className="border-t border-zinc-800/40 pt-3">
+                  {!editingSlide ? (
+                    <button
+                      onClick={() => {
+                        const slide = result.slides?.[slideIdx];
+                        setEditHeadline(slide?.headline ?? "");
+                        setEditBody(slide?.body ?? "");
+                        setEditingSlide(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-400 hover:text-zinc-200 text-xs transition-all border border-zinc-700/30">
+                      <Pencil className="w-3 h-3" /> Editar texto del slide {slideIdx + 1}
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-medium">Editando slide {slideIdx + 1}</p>
+                      <div>
+                        <label className="text-zinc-500 text-[10px] mb-1 block">Titular</label>
+                        <textarea value={editHeadline} onChange={e => setEditHeadline(e.target.value)}
+                          rows={2}
+                          className="w-full bg-zinc-800 border border-zinc-700/50 rounded-lg px-3 py-2 text-zinc-200 text-xs resize-none focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                      </div>
+                      <div>
+                        <label className="text-zinc-500 text-[10px] mb-1 block">Cuerpo</label>
+                        <textarea value={editBody} onChange={e => setEditBody(e.target.value)}
+                          rows={3}
+                          className="w-full bg-zinc-800 border border-zinc-700/50 rounded-lg px-3 py-2 text-zinc-200 text-xs resize-none focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setEditSaving(true);
+                            try {
+                              await api.updateSlide(result.slug, slideIdx, {
+                                headline: editHeadline,
+                                body: editBody,
+                              });
+                              setImgCacheBust(p => ({ ...p, [slideIdx]: Date.now() }));
+                              setEditingSlide(false);
+                            } catch { /* noop */ }
+                            setEditSaving(false);
+                          }}
+                          disabled={editSaving}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium transition-all">
+                          {editSaving ? "Aplicando..." : "Aplicar"}
+                        </button>
+                        <button onClick={() => setEditingSlide(false)}
+                          className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs transition-all border border-zinc-700/40">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Hook variants */}
                 {result.hook_variants?.length > 0 && (
                   <div className="space-y-1 pt-2 border-t border-zinc-800/40">

@@ -168,6 +168,10 @@ def generate(
                 image_sources["pexels"] += 1
 
             out_png = img_dir / f"{idx:02d}.png"
+            # Persist background so re-render (text editing) can reuse it
+            if bg is not None:
+                bg_copy = img_dir / f"bg_{idx:02d}.jpg"
+                shutil.copy2(bg, bg_copy)
             try:
                 slides_composer.compose_slide(slide, bg, style, out_png,
                                               total_slides=len(slides),

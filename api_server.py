@@ -732,6 +732,52 @@ def download_slides_zip(slug: str):
     )
 
 
+class SlideUpdateRequest(BaseModel):
+    headline: str | None = None
+    body: str | None = None
+
+
+@app.patch("/api/slides/{slug}/slides/{index}")
+def update_slide_text(slug: str, index: int, req: SlideUpdateRequest):
+    """Re-render a single slide with updated headline/body text."""
+    import shutil as _shutil
+    from src.services import slides_composer as _composer
+
+    slide_dir = _safe_path(SLIDES_OUTPUT, slug)
+    meta_path = slide_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Slide set not found")
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    slides = meta.get("slides", [])
+    slide = next((s for s in slides if s.get("index") == index), None)
+    if slide is None:
+        raise HTTPException(status_code=404, detail=f"Slide {index} not found")
+
+    if req.headline is not None:
+        slide["headline"] = req.headline
+    if req.body is not None:
+        slide["body"] = req.body
+
+    bg_path = slide_dir / "images" / f"bg_{index:02d}.jpg"
+    bg = bg_path if bg_path.exists() else None
+
+    style = meta.get("style", "botanico")
+    style_override = meta.get("style_override")
+    out_png = slide_dir / "images" / f"{index:02d}.png"
+    total = len(slides)
+
+    try:
+        _composer.compose_slide(slide, bg, style, out_png,
+                                total_slides=total,
+                                style_override=style_override)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Re-render failed: {e}")
+
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"updated": True, "index": index}
+
+
 class SlidesPublishRequest(BaseModel):
     platform: str
 

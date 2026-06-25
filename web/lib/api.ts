@@ -118,6 +118,13 @@ export const api = {
       body: JSON.stringify({ topic, style, series_part, profile_id: profile_id ?? "", slide_count: slide_count ?? 10 }),
     }),
 
+  updateSlide: (slug: string, index: number, fields: { headline?: string; body?: string }) =>
+    apiFetch<{ updated: boolean; index: number }>(`/api/slides/${slug}/slides/${index}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    }),
+
   listSlides: () =>
     apiFetch<{ sets: { slug: string; topic: string; style: string; title: string; created_at: string; image_count: number; has_video: boolean }[] }>("/api/slides"),
 
@@ -128,6 +135,7 @@ export const api = {
       hashtags: Record<string, string[]>;
       hook_variants: string[];
       created_at: string;
+      slides?: { index: number; headline: string; body: string; layout: string }[];
     }>(`/api/slides/${slug}`),
 
   slideImageUrl: (slug: string, filename: string) => `${BASE}/api/slides/${slug}/images/${filename}`,
