@@ -1090,6 +1090,20 @@ const SLIDE_STYLES = [
   { id: "dark_jungle", label: "Dark Jungle", dot: "bg-emerald-400" },
 ];
 
+const STYLE_RING: Record<string, string> = {
+  botanico:    "ring-yellow-500/40 bg-yellow-500/10 text-yellow-300",
+  terracota:   "ring-orange-400/40 bg-orange-500/10 text-orange-300",
+  aesthetic:   "ring-pink-300/40 bg-pink-500/10 text-pink-200",
+  dark_jungle: "ring-emerald-400/40 bg-emerald-500/10 text-emerald-300",
+};
+
+const STYLE_DOT: Record<string, string> = {
+  botanico:    "bg-yellow-400",
+  terracota:   "bg-orange-400",
+  aesthetic:   "bg-pink-300",
+  dark_jungle: "bg-emerald-400",
+};
+
 function SlidesGeneratorSection() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("botanico");
@@ -1189,71 +1203,110 @@ function SlidesGeneratorSection() {
     <div className="space-y-6">
       {/* Form */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-        {/* Profiles row */}
-        <div className="space-y-2">
-          <div className="flex gap-2 flex-wrap items-center">
+        {/* Profiles */}
+        <div className="space-y-2.5">
+          {/* Pills row */}
+          <div className="flex gap-1.5 flex-wrap items-center">
             <button onClick={() => selectProfile(null)}
-              className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${!selectedProfile ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                !selectedProfile
+                  ? "bg-zinc-700 text-zinc-200 shadow-inner"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+              }`}>
               General
             </button>
-            {profiles.map(p => (
-              <div key={p.id} className="group relative">
-                <button onClick={() => selectProfile(p.id)}
-                  className={`px-3 py-1.5 pr-7 rounded-lg border text-xs transition-all ${selectedProfile === p.id ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
-                  {p.name}
+
+            {profiles.map(p => {
+              const active = selectedProfile === p.id;
+              const ring = STYLE_RING[p.style] ?? "ring-zinc-500/40 bg-zinc-700/20 text-zinc-300";
+              const dot  = STYLE_DOT[p.style]  ?? "bg-zinc-400";
+              return (
+                <div key={p.id} className="group relative">
+                  <button onClick={() => selectProfile(p.id)}
+                    className={`pl-2.5 pr-7 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                      active
+                        ? `ring-1 ${ring}`
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                    }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? dot : "bg-zinc-600"}`} />
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await api.deleteProfile(p.id).catch(() => {});
+                      setProfiles(prev => prev.filter(x => x.id !== p.id));
+                      if (selectedProfile === p.id) setSelectedProfile(null);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Create toggle */}
+            {creatingProfile ? (
+              <div className="flex items-center gap-1.5 ml-1">
+                <input
+                  value={newProfileName}
+                  onChange={e => setNewProfileName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && createProfile()}
+                  placeholder="ej. Cocina saludable, Finanzas..."
+                  autoFocus
+                  className="bg-zinc-800 border border-zinc-700 rounded-full px-3.5 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/60 w-52 transition"
+                />
+                <button
+                  onClick={createProfile}
+                  disabled={!newProfileName.trim() || generatingProfile}
+                  className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium disabled:opacity-40 flex items-center gap-1.5 transition-all shrink-0">
+                  {generatingProfile
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Sparkles className="w-3 h-3" />}
+                  {generatingProfile ? "Creando..." : "Crear"}
                 </button>
                 <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await api.deleteProfile(p.id).catch(() => {});
-                    setProfiles(prev => prev.filter(x => x.id !== p.id));
-                    if (selectedProfile === p.id) setSelectedProfile(null);
-                  }}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
-                  <X className="w-2.5 h-2.5" />
+                  onClick={() => { setCreatingProfile(false); setNewProfileName(""); }}
+                  className="p-1.5 rounded-full text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition">
+                  <X className="w-3 h-3" />
                 </button>
               </div>
-            ))}
-            <div className="flex items-center gap-1.5 ml-auto">
-              {creatingProfile ? (
-                <>
-                  <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && createProfile()}
-                    placeholder="Nombre de categoría..."
-                    autoFocus
-                    className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 w-52" />
-                  <button onClick={createProfile} disabled={!newProfileName.trim() || generatingProfile}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs disabled:opacity-40 flex items-center gap-1.5">
-                    {generatingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    {generatingProfile ? 'Generando perfil IA...' : 'Crear'}
-                  </button>
-                  <button onClick={() => { setCreatingProfile(false); setNewProfileName(""); }} className="text-zinc-600 hover:text-zinc-400 p-1">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => setCreatingProfile(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 text-xs transition-all">
-                  <Sparkles className="w-3 h-3" /> Nueva categoría IA
-                </button>
-              )}
-            </div>
+            ) : (
+              <button
+                onClick={() => setCreatingProfile(true)}
+                className="ml-1 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 text-xs font-medium transition-all">
+                <Sparkles className="w-3 h-3" />
+                Nueva categoría
+              </button>
+            )}
           </div>
-          {/* Active profile detail — content angles */}
-          {selectedProfile && (() => {
-            const p = profiles.find(pr => pr.id === selectedProfile);
-            if (!p?.content_angles?.length) return null;
-            return (
-              <div className="flex gap-1.5 flex-wrap items-center">
-                <span className="text-zinc-600 text-xs">Ángulos:</span>
-                {p.content_angles.map((angle, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-md bg-zinc-800/70 text-zinc-500 text-xs border border-zinc-700/50">
-                    {angle}
-                  </span>
-                ))}
-              </div>
-            );
-          })()}
+
+          {/* Suggested topics — clickable to fill topic input */}
+          <AnimatePresence>
+            {selectedProfile && (() => {
+              const p = profiles.find(pr => pr.id === selectedProfile);
+              if (!p?.content_angles?.length) return null;
+              return (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex gap-1.5 flex-wrap items-center">
+                  <span className="text-zinc-600 text-xs shrink-0">Temas:</span>
+                  {p.content_angles.map((angle, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setTopic(angle)}
+                      className="px-2.5 py-1 rounded-full bg-zinc-800/80 hover:bg-emerald-950/60 text-zinc-400 hover:text-emerald-300 text-xs border border-zinc-700/50 hover:border-emerald-700/50 transition-all">
+                      {angle}
+                    </button>
+                  ))}
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
         </div>
 
         <div className="flex gap-3">
