@@ -23,6 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy Python wheels from builder
 COPY --from=builder /install /usr/local
 
+# Install Playwright browser + all system dependencies it needs
+# --with-deps handles libnss3, libatk, libgbm and the rest automatically
+RUN playwright install chromium --with-deps
+
 # Download OpenCV DNN face detector model at build time (~10MB)
 # Pinned to opencv/4.x branch for stability
 RUN mkdir -p /tmp/cv_face && \
