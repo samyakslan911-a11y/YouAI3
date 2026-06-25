@@ -126,9 +126,23 @@ def _wrap(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
     return lines
 
 
+def _strip_emoji(text: str) -> str:
+    import re
+    return re.sub(
+        r"[\U00010000-\U0010ffff"
+        r"\U0001F300-\U0001F9FF"
+        r"☀-➿"
+        r"︀-️"
+        r"‍]+",
+        "",
+        text,
+    ).strip()
+
+
 def _draw_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
                color: tuple, max_w: int, cx: int, y: int, gap: int = 14,
                shadow: bool = True) -> int:
+    text = _strip_emoji(text)
     for line in _wrap(text, font, max_w):
         if not line:
             y += gap

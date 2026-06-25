@@ -42,17 +42,24 @@ def assemble_video(image_paths: list[Path], output_path: Path) -> Path:
     filter_parts: list[str] = []
     zoom_frames = int((SLIDE_DURATION + FADE_DURATION) * 25)  # 25fps
 
+    zoom_step = (ZOOM_FACTOR - 1.0) / zoom_frames
+
     for i in range(n):
-        # Alternate zoom direction per slide for visual variety
-        zoom_expr = f"zoom='if(lte(on,1),1,min(zoom+{(ZOOM_FACTOR-1)/zoom_frames:.6f},{ZOOM_FACTOR}))'"
-        if i % 2 == 0:
+        # Ken Burns: slow zoom in from center, alternate anchor corner
+        zoom_expr = f"zoom='min(zoom+{zoom_step:.6f},{ZOOM_FACTOR})'"
+        if i % 4 == 0:
             x_expr = "x='iw/2-(iw/zoom/2)'"
             y_expr = "y='ih/2-(ih/zoom/2)'"
+        elif i % 4 == 1:
+            x_expr = "x='0'"
+            y_expr = "y='0'"
+        elif i % 4 == 2:
+            x_expr = "x='iw-(iw/zoom)'"
+            y_expr = "y='0'"
         else:
-            x_expr = "x='iw/2-(iw/zoom/2)+((iw-(iw/zoom))*on/(2*td*fps))'"
-            y_expr = "y='ih/2-(ih/zoom/2)'"
+            x_expr = "x='0'"
+            y_expr = "y='ih-(ih/zoom)'"
 
-        # Ken Burns zoom
         filter_parts.append(
             f"[{i}:v]zoompan={zoom_expr}:{x_expr}:{y_expr}"
             f":d={zoom_frames}:s={SLIDE_W}x{SLIDE_H}:fps=25[zoom{i}]"

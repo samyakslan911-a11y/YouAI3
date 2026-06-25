@@ -1,8 +1,6 @@
 import json, os, logging
 from typing import Literal
 
-import google.generativeai as genai
-
 log = logging.getLogger(__name__)
 
 SlidStyle = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
@@ -67,17 +65,22 @@ Devuelve exactamente este JSON:
 
 
 def generate_content(topic: str, style: SlidStyle, series_part: int | None = None) -> dict:
-    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel(
-        model_name=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-        system_instruction=_SYSTEM,
-    )
+    import time
+    from google import genai
+    from google.genai import errors as genai_errors
+
+    api_key = os.environ["GOOGLE_API_KEY"]
+    primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    fallbacks = ["gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"]
+    models_to_try = [primary] + [m for m in fallbacks if m != primary]
+
+    client = genai.Client(api_key=api_key)
 
     series_hint = ""
     if series_part:
         series_hint = f"Este es la Parte {series_part} de una serie. Referencia partes anteriores y anuncia la siguiente."
 
-    prompt = _PROMPT.format(
+    prompt = _SYSTEM + "\n\n" + _PROMPT.format(
         topic=topic,
         style=style,
         series_hint=series_hint,
@@ -85,15 +88,45 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     )
 
     log.info(f"Generando contenido para: {topic} ({style})")
-    response = model.generate_content(prompt)
-    raw = response.text.strip()
+    last_err = None
+    for model_name in models_to_try:
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(model=model_name, contents=prompt)
+                log.info(f"  modelo usado: {model_name}")
+                raw = response.text.strip()
+                break
+            except genai_errors.ServerError as e:
+                last_err = e
+                wait = 8 * (attempt + 1)
+                log.warning(f"  {model_name} 503, reintentando en {wait}s (intento {attempt+1}/3)...")
+                time.sleep(wait)
+        else:
+            log.warning(f"  {model_name} agotado, probando siguiente modelo...")
+            continue
+        break
+    else:
+        raise RuntimeError(f"Todos los modelos Gemini fallaron: {last_err}")
 
     # Strip markdown code fences if present
-    if raw.startswith("```"):
+    if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
     raw = raw.strip()
+
+    # Extract first complete JSON object (ignore trailing text)
+    depth, start = 0, -1
+    for i, ch in enumerate(raw):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start != -1:
+                raw = raw[start:i + 1]
+                break
 
     data = json.loads(raw)
     _validate(data)

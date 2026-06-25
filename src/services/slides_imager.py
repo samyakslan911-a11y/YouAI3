@@ -6,10 +6,9 @@ Image acquisition for slides:
 
 Gemini Vision picks the best candidate from downloaded options.
 """
-import io, json, logging, os, tempfile, urllib.request
+import io, json, logging, os, urllib.parse, urllib.request
 from pathlib import Path
 
-import google.generativeai as genai
 from PIL import Image
 
 log = logging.getLogger(__name__)
@@ -23,14 +22,7 @@ W, H = 1080, 1350
 
 def _inat_photos(species: str, n: int = 6) -> list[str]:
     """Return up to n photo URLs from iNaturalist for a species."""
-    url = (
-        f"{INAT_BASE}/observations"
-        f"?taxon_name={urllib.parse.quote(species)}"
-        "&photos=true&quality_grade=research"
-        f"&per_page={n}&order_by=votes"
-    )
     try:
-        import urllib.parse
         url = (
             f"{INAT_BASE}/observations"
             f"?taxon_name={urllib.parse.quote(species)}"
@@ -120,26 +112,31 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
     if len(candidates) == 1:
         return candidates[0]
 
-    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
-
-    parts = [
-        f"Slide headline: \"{slide.get('headline', '')}\"\n"
-        f"Slide body: \"{slide.get('body', '')}\"\n\n"
-        "These are candidate background photos for this slide. "
-        "Pick the ONE with best: composition (space for text), "
-        "lighting (natural preferred), subject clarity, and relevance to the text. "
-        f"Reply with ONLY a single integer 0-{len(candidates)-1} (the index of best photo)."
-    ]
-    for i, p in enumerate(candidates):
-        try:
-            parts.append(f"\nPhoto {i}:")
-            parts.append(Image.open(p))
-        except Exception:
-            pass
-
     try:
-        response = model.generate_content(parts)
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+        prompt = (
+            f"Slide headline: \"{slide.get('headline', '')}\"\n"
+            f"Slide body: \"{slide.get('body', '')}\"\n\n"
+            f"I have {len(candidates)} candidate background photos for this slide. "
+            "Pick the ONE with best: composition (space for text at bottom), "
+            "natural lighting, subject clarity, and relevance to the headline. "
+            f"Reply with ONLY a single integer 0-{len(candidates)-1}."
+        )
+
+        contents: list = [prompt]
+        for p in candidates:
+            try:
+                with open(p, "rb") as f:
+                    contents.append(types.Part.from_bytes(data=f.read(), mime_type="image/jpeg"))
+            except Exception:
+                pass
+
+        response = client.models.generate_content(model=model_name, contents=contents)
         idx = int(response.text.strip().split()[0])
         idx = max(0, min(idx, len(candidates) - 1))
         log.info(f"  Gemini Vision picked photo {idx}/{len(candidates)-1}")
