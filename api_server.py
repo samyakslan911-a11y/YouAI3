@@ -516,11 +516,64 @@ def remove_profile(profile_id: str):
     return {"success": delete_profile(profile_id)}
 
 
+# ── Custom Styles ─────────────────────────────────────────────────────────────
+
+class StyleCreateRequest(BaseModel):
+    name: str
+    accent_hex: str          # e.g. "#3a8c5f"
+    base_hue: str = "natural"   # calido | frio | natural
+    darkness: str = "suave"     # claro | suave | oscuro
+
+
+@app.get("/api/styles")
+def list_styles():
+    from src.services.slides_composer import STYLES
+    from src.services.custom_styles import list_custom
+    defaults = [
+        {"id": k, "name": k.replace("_", " ").title(), "accent_hex": "#{:02x}{:02x}{:02x}".format(*v["accent"][:3]),
+         "is_custom": False, "darkness": "oscuro" if v.get("photo_tint", 0.10) >= 0.15 else "suave"}
+        for k, v in STYLES.items()
+    ]
+    custom = [
+        {"id": c.id, "name": c.name, "accent_hex": c.accent_hex,
+         "base_hue": c.base_hue, "darkness": c.darkness, "is_custom": True}
+        for c in list_custom()
+    ]
+    return {"styles": defaults + custom}
+
+
+@app.post("/api/styles")
+def create_style(req: StyleCreateRequest):
+    from src.services.custom_styles import create_custom
+    valid_hues = {"calido", "frio", "natural"}
+    valid_dark = {"claro", "suave", "oscuro"}
+    if not req.name.strip():
+        raise HTTPException(status_code=422, detail="name is required")
+    if req.base_hue not in valid_hues:
+        raise HTTPException(status_code=422, detail=f"base_hue must be one of {valid_hues}")
+    if req.darkness not in valid_dark:
+        raise HTTPException(status_code=422, detail=f"darkness must be one of {valid_dark}")
+    try:
+        cs = create_custom(req.name.strip(), req.accent_hex, req.base_hue, req.darkness)
+        from dataclasses import asdict
+        d = asdict(cs)
+        d.pop("derived")
+        return d
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/styles/{style_id}")
+def delete_style(style_id: str):
+    from src.services.custom_styles import delete_custom
+    return {"success": delete_custom(style_id)}
+
+
 # ── Slides ────────────────────────────────────────────────────────────────────
 
 class SlidesRequest(BaseModel):
     topic: str
-    style: str = "botanico"
+    style: str = "botanico"     # default style name OR custom style id
     series_part: int | None = None
     profile_id: str = ""
 
@@ -531,24 +584,33 @@ SLIDES_OUTPUT = OUTPUT_DIR / "slides"
 @app.post("/api/slides")
 def create_slides(req: SlidesRequest):
     from src.services import slides_generator
-    valid_styles = {"terracota", "botanico", "aesthetic", "dark_jungle"}
+    from src.services.slides_composer import STYLES
+    from src.services.custom_styles import get_custom
 
+    # Resolve style — could be default name or custom style ID
+    style_override: dict | None = None
     effective_style = req.style
+
+    custom_style = get_custom(req.style)
+    if custom_style:
+        style_override = custom_style.derived
+        effective_style = "botanico"   # base layout fallback name
+    elif req.style not in STYLES:
+        effective_style = "botanico"
+
     if req.profile_id:
         from src.services.content_profiles import get_profile
         _profile = get_profile(req.profile_id)
-        if _profile and req.style == "botanico":
+        if _profile and req.style == "botanico" and not style_override:
             effective_style = _profile.style
     else:
         _profile = None
-
-    if effective_style not in valid_styles:
-        raise HTTPException(status_code=400, detail=f"style must be one of {valid_styles}")
 
     job_id = str(uuid.uuid4())[:8]
     job_store.create(job_id, url=f"slides:{req.topic}")
 
     profile_snapshot = _profile
+    style_snap = style_override
 
     def _run():
         job_store.update(job_id, status="running")
@@ -556,6 +618,7 @@ def create_slides(req: SlidesRequest):
             meta = slides_generator.generate(
                 req.topic, effective_style, req.series_part,
                 profile=profile_snapshot,
+                style_override=style_snap,
                 on_progress=lambda msg: job_store.append_log(job_id, msg),
             )
             try:

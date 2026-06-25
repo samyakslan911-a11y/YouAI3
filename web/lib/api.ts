@@ -146,6 +146,19 @@ export const api = {
 
   deleteProfile: (id: string) =>
     apiFetch<{ success: boolean }>(`/api/profiles/${id}`, { method: "DELETE" }),
+
+  listStyles: () =>
+    apiFetch<{ styles: StyleItem[] }>("/api/styles"),
+
+  createStyle: (name: string, accent_hex: string, base_hue: string, darkness: string) =>
+    apiFetch<StyleItem>("/api/styles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, accent_hex, base_hue, darkness }),
+    }),
+
+  deleteStyle: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/styles/${id}`, { method: "DELETE" }),
 };
 
 export type ProfileItem = {
@@ -156,4 +169,13 @@ export type ProfileItem = {
   content_angles: string[];
   image_keywords: string[];
   created_at: string;
+};
+
+export type StyleItem = {
+  id: string;
+  name: string;
+  accent_hex: string;
+  is_custom: boolean;
+  base_hue?: string;
+  darkness?: string;
 };

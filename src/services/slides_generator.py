@@ -99,6 +99,7 @@ def generate(
     style: slides_composer.Style = "botanico",
     series_part: int | None = None,
     profile=None,
+    style_override: dict | None = None,
     on_progress: callable = None,
 ) -> dict:
     """
@@ -163,7 +164,9 @@ def generate(
                 image_sources["pexels"] += 1
 
             out_png = img_dir / f"{idx:02d}.png"
-            slides_composer.compose_slide(slide, bg, style, out_png, total_slides=len(slides))
+            slides_composer.compose_slide(slide, bg, style, out_png,
+                                          total_slides=len(slides),
+                                          style_override=style_override)
             image_paths.append(out_png)
 
     src_summary = f"inat={image_sources['inat']} pexels={image_sources['pexels']} fallback={image_sources['fallback']}"

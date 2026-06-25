@@ -7,10 +7,14 @@ SlidStyle = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
 
 _LAYOUT_RULES = """
 Layout rules:
-- body empty or ≤5 words → layout: "hero"
-- body 1-2 sentences (max 25 words) → layout: "split"
-- body with exactly 3-4 bullet points → layout: "card"
-- type pattern_interrupt or quote → layout: "quote"
+- Slide 1 (hook) SIEMPRE → layout: "minimal" (solo headline, sin body)
+- Slide 10 (cta) → layout: "hero" (solo headline, sin body)
+- body empty o ≤5 palabras → layout: "hero" o "minimal"
+- body 1-2 oraciones (max 25 palabras) → layout: "split"
+- body con exactamente 3-4 bullets → layout: "card"
+- type pattern_interrupt o quote → layout: "quote"
+- slides de especie con datos clave → layout: "editorial" (se renderiza con número grande)
+- Para más variedad, alterna: minimal→split→card→editorial→quote en slides 2-8.
 """
 
 _SYSTEM = """Eres un experto en contenido viral para Instagram y YouTube Shorts.

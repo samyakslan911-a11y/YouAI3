@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { api, type Video, type Job, type ProfileItem } from "@/lib/api";
+import { api, type Video, type Job, type ProfileItem, type StyleItem } from "@/lib/api";
 import {
   Search, Zap, Video as VideoIcon, BarChart2, TrendingUp,
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
@@ -1083,20 +1083,15 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
 }
 
 // ── Slides — Generator section ────────────────────────────────────────────────
-const SLIDE_STYLES = [
-  { id: "botanico",    label: "Botánico",    dot: "bg-yellow-400",
-    swatch: "from-[#050f07] via-[#0d1f0b] to-[#1a1800]",
-    ring: "ring-yellow-400/50",  glow: "shadow-yellow-900/40" },
-  { id: "terracota",   label: "Terracota",  dot: "bg-orange-400",
-    swatch: "from-[#1a0400] via-[#2e0a03] to-[#3d1200]",
-    ring: "ring-orange-400/50",  glow: "shadow-orange-900/40" },
-  { id: "aesthetic",   label: "Aesthetic",  dot: "bg-fuchsia-300",
-    swatch: "from-[#1a0a20] via-[#2d1245] to-[#1e0f38]",
-    ring: "ring-fuchsia-400/50", glow: "shadow-fuchsia-900/40" },
-  { id: "dark_jungle", label: "Dark Jungle",dot: "bg-emerald-400",
-    swatch: "from-[#010402] via-[#030f06] to-[#020a03]",
-    ring: "ring-emerald-400/50", glow: "shadow-emerald-900/40" },
-];
+// Static swatches for built-in styles (gradient strings)
+const BUILTIN_SWATCHES: Record<string, string> = {
+  botanico:    "from-[#040e06] via-[#0a1f0b] to-[#111600]",
+  terracota:   "from-[#150300] via-[#280800] to-[#340e00]",
+  aesthetic:   "from-[#180912] via-[#261030] to-[#180c25]",
+  dark_jungle: "from-[#010301] via-[#020805] to-[#010602]",
+  sage:        "from-[#060e04] via-[#112810] to-[#0d1f08]",
+  ivory:       "from-[#130b05] via-[#221508] to-[#2e1c0a]",
+};
 
 const STYLE_RING: Record<string, string> = {
   botanico:    "ring-yellow-500/40 bg-yellow-500/10 text-yellow-300",
@@ -1133,9 +1128,43 @@ function SlidesGeneratorSection() {
   const [generatingProfile, setGeneratingProfile] = useState(false);
   const [liveLog, setLiveLog] = useState("");
 
+  // Dynamic styles
+  const [styles, setStyles] = useState<StyleItem[]>([]);
+  const [showStyleModal, setShowStyleModal] = useState(false);
+  const [newStyleName, setNewStyleName] = useState("");
+  const [newStyleAccent, setNewStyleAccent] = useState("#5a9e6a");
+  const [newStyleHue, setNewStyleHue] = useState("natural");
+  const [newStyleDarkness, setNewStyleDarkness] = useState("suave");
+  const [creatingStyle, setCreatingStyle] = useState(false);
+
   useEffect(() => {
     api.listProfiles().then(setProfiles).catch(() => {});
+    api.listStyles().then(d => setStyles(d.styles)).catch(() => {});
   }, []);
+
+  async function createCustomStyle() {
+    if (!newStyleName.trim()) return;
+    setCreatingStyle(true);
+    try {
+      await api.createStyle(newStyleName.trim(), newStyleAccent, newStyleHue, newStyleDarkness);
+      const d = await api.listStyles();
+      setStyles(d.styles);
+      const created = d.styles.find(s => s.name === newStyleName.trim() && s.is_custom);
+      if (created) setStyle(created.id);
+      setShowStyleModal(false);
+      setNewStyleName("");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreatingStyle(false);
+    }
+  }
+
+  async function deleteCustomStyle(id: string) {
+    await api.deleteStyle(id).catch(() => {});
+    setStyles(prev => prev.filter(s => s.id !== id));
+    if (style === id) setStyle("botanico");
+  }
 
   async function createProfile() {
     if (!newProfileName.trim()) return;
@@ -1336,31 +1365,138 @@ function SlidesGeneratorSection() {
           </div>
 
           {/* Style swatches + serie ──────────────────────────────────────── */}
-          <div className="flex items-center gap-2.5">
-            <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium shrink-0">Estilo</span>
-            <div className="flex gap-2">
-              {SLIDE_STYLES.map(s => (
-                <button key={s.id} onClick={() => setStyle(s.id)}
-                  className={`relative h-9 w-20 rounded-xl overflow-hidden border transition-all duration-200 group ${
-                    style === s.id
-                      ? `border-white/20 ring-1 ${s.ring} scale-105 shadow-lg ${s.glow}`
-                      : "border-zinc-700/60 hover:border-zinc-500 hover:scale-102 opacity-60 hover:opacity-100"
-                  }`}>
-                  <div className={`absolute inset-0 bg-gradient-to-br ${s.swatch}`} />
-                  <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
-                    <span className="text-white/90 text-[10px] font-semibold drop-shadow-md leading-none">{s.label}</span>
-                  </div>
-                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${s.dot} opacity-90`} />
-                </button>
-              ))}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium">Estilo</span>
+              <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
+                <span>Parte serie</span>
+                <input type="number" min={1} max={10} placeholder="—"
+                  onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
+                  className="w-12 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+              </div>
             </div>
-            <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
-              <span>Parte</span>
-              <input type="number" min={1} max={10} placeholder="—"
-                onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-10 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+            <div className="flex gap-2 flex-wrap items-center">
+              {styles.map(s => {
+                const isActive = style === s.id;
+                const swatch = BUILTIN_SWATCHES[s.id];
+                return (
+                  <div key={s.id} className="relative group/swatch">
+                    <button onClick={() => setStyle(s.id)}
+                      className={`relative h-10 w-[4.5rem] rounded-xl overflow-hidden border transition-all duration-200 ${
+                        isActive
+                          ? "border-white/25 ring-1 ring-white/20 scale-105 shadow-lg shadow-black/40"
+                          : "border-zinc-700/50 hover:border-zinc-500 opacity-55 hover:opacity-95 hover:scale-[1.03]"
+                      }`}>
+                      {swatch ? (
+                        <div className={`absolute inset-0 bg-gradient-to-br ${swatch}`} />
+                      ) : (
+                        <div className="absolute inset-0" style={{
+                          background: `linear-gradient(135deg, ${s.accent_hex}18 0%, ${s.accent_hex}55 100%)`
+                        }} />
+                      )}
+                      {/* Shimmer on active */}
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent" />
+                      )}
+                      <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
+                        <span className="text-white/90 text-[9px] font-semibold drop-shadow-md leading-none line-clamp-1">
+                          {s.name}
+                        </span>
+                      </div>
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full opacity-90"
+                            style={{ backgroundColor: s.accent_hex }} />
+                    </button>
+                    {/* Delete custom style */}
+                    {s.is_custom && (
+                      <button
+                        onClick={() => deleteCustomStyle(s.id)}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white hover:bg-red-900/60 flex items-center justify-center opacity-0 group-hover/swatch:opacity-100 transition-opacity z-10">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Create custom style button */}
+              <button onClick={() => setShowStyleModal(true)}
+                className="h-10 w-10 rounded-xl border border-dashed border-zinc-600/70 hover:border-zinc-400 text-zinc-600 hover:text-zinc-300 flex items-center justify-center transition-all hover:bg-zinc-800/40 shrink-0"
+                title="Crear estilo personalizado">
+                <span className="text-xl leading-none">+</span>
+              </button>
             </div>
           </div>
+
+          {/* Custom style creation modal */}
+          <AnimatePresence>
+            {showStyleModal && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+                onClick={() => setShowStyleModal(false)}>
+                <motion.div initial={{ scale: 0.94, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 10 }}
+                  transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                  className="bg-zinc-900 border border-zinc-700/60 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl"
+                  onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-white font-semibold text-[15px]">Nuevo estilo personalizado</h3>
+                    <button onClick={() => setShowStyleModal(false)} className="text-zinc-500 hover:text-zinc-300 p-1">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <input value={newStyleName} onChange={e => setNewStyleName(e.target.value)}
+                      placeholder="Nombre del estilo…"
+                      className="w-full bg-zinc-800/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition" />
+                    <div className="flex items-center gap-3">
+                      <label className="text-zinc-500 text-xs shrink-0">Color acento</label>
+                      <div className="relative">
+                        <input type="color" value={newStyleAccent}
+                          onChange={e => setNewStyleAccent(e.target.value)}
+                          className="w-10 h-10 rounded-xl border-2 border-zinc-700 bg-zinc-800 cursor-pointer p-0.5" />
+                      </div>
+                      <div className="h-10 flex-1 rounded-xl border border-zinc-700/60 overflow-hidden">
+                        <div className="w-full h-full" style={{
+                          background: `linear-gradient(135deg, ${newStyleAccent}18, ${newStyleAccent}88)`
+                        }} />
+                      </div>
+                      <span className="text-zinc-500 text-[11px] font-mono">{newStyleAccent}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-zinc-500 text-[11px] mb-1.5 block uppercase tracking-wider">Paleta</label>
+                        <select value={newStyleHue} onChange={e => setNewStyleHue(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-500 transition cursor-pointer">
+                          <option value="natural">Natural</option>
+                          <option value="calido">Cálido</option>
+                          <option value="frio">Frío</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-zinc-500 text-[11px] mb-1.5 block uppercase tracking-wider">Oscuridad</label>
+                        <select value={newStyleDarkness} onChange={e => setNewStyleDarkness(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-500 transition cursor-pointer">
+                          <option value="claro">Claro</option>
+                          <option value="suave">Suave</option>
+                          <option value="oscuro">Oscuro</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setShowStyleModal(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm hover:bg-zinc-800 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={createCustomStyle}
+                      disabled={!newStyleName.trim() || creatingStyle}
+                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                      {creatingStyle && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      Crear estilo
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Progress steps */}
           <AnimatePresence>

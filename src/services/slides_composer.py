@@ -1,6 +1,6 @@
 """
 Compose one slide PNG (1080x1350) from a background image + slide data.
-Supports 4 layouts × 4 styles.
+Supports 6 layouts × 6 styles + custom user styles.
 Premium variable fonts: Playfair Display (headlines) + Montserrat (body).
 """
 import logging
@@ -18,8 +18,8 @@ CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@tucanal")
 
 _ASSETS = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
 
-Layout = Literal["hero", "split", "card", "quote"]
-Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
+Layout = Literal["hero", "split", "card", "quote", "minimal", "editorial"]
+Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle", "sage", "ivory"]
 
 _FONT_FILES = {
     "playfair":   _ASSETS / "PlayfairDisplay.ttf",
@@ -69,61 +69,90 @@ def _font(key: FontKey, size: int) -> ImageFont.FreeTypeFont:
 
 STYLES: dict[str, dict] = {
     "terracota": {
-        "overlay":    (62, 18, 5),
-        "overlay2":   (110, 40, 12),      # second gradient stop — warm burnt sienna
+        "overlay":    (48, 14, 4),
+        "overlay2":   (88, 32, 10),
         "accent":     (235, 148, 62),
-        "accent2":    (200, 90, 35),      # deeper terracotta for shadows
-        "primary":    (255, 250, 232),
-        "secondary":  (225, 192, 152),
-        "bloom_color":(180, 80, 30),      # radial bloom tint
-        "font_h": "bold",   "size_h": 86,
-        "font_b": "reg",    "size_b": 40,
+        "accent2":    (190, 85, 30),
+        "primary":    (255, 252, 238),
+        "secondary":  (228, 200, 162),
+        "bloom_color":(160, 72, 25),
+        "font_h": "bold",  "size_h": 86,
+        "font_b": "reg",   "size_b": 42,
         "dots":    (235, 148, 62),
-        "card_bg": (42, 10, 2, 220),
-        "photo_tint": 0.22,
+        "card_bg": (30, 8, 2, 195),
+        "photo_tint": 0.10,
     },
     "botanico": {
-        "overlay":    (5, 24, 10),
-        "overlay2":   (12, 48, 22),       # richer forest mid-tone
+        "overlay":    (4, 18, 8),
+        "overlay2":   (10, 38, 18),
         "accent":     (210, 178, 52),
-        "accent2":    (150, 115, 28),
-        "primary":    (252, 248, 224),
-        "secondary":  (152, 220, 142),
-        "bloom_color":(30, 80, 40),
-        "font_h": "bold",   "size_h": 84,
-        "font_b": "reg",    "size_b": 40,
+        "accent2":    (145, 110, 25),
+        "primary":    (252, 250, 228),
+        "secondary":  (165, 225, 152),
+        "bloom_color":(25, 70, 35),
+        "font_h": "bold",  "size_h": 84,
+        "font_b": "reg",   "size_b": 42,
         "dots":    (210, 178, 52),
-        "card_bg": (3, 15, 6, 220),
-        "photo_tint": 0.20,
+        "card_bg": (2, 12, 4, 195),
+        "photo_tint": 0.09,
     },
     "aesthetic": {
-        "overlay":    (48, 24, 58),
-        "overlay2":   (72, 38, 88),
+        "overlay":    (38, 18, 48),
+        "overlay2":   (62, 30, 78),
         "accent":     (236, 178, 218),
-        "accent2":    (180, 120, 165),
-        "primary":    (255, 250, 255),
-        "secondary":  (198, 222, 196),
-        "bloom_color":(120, 60, 140),
-        "font_h": "lightb", "size_h": 80,
-        "font_b": "light",  "size_b": 38,
+        "accent2":    (175, 115, 158),
+        "primary":    (255, 252, 255),
+        "secondary":  (205, 228, 200),
+        "bloom_color":(105, 52, 125),
+        "font_h": "lightb", "size_h": 82,
+        "font_b": "light",  "size_b": 40,
         "dots":    (236, 178, 218),
-        "card_bg": (35, 15, 45, 220),
-        "photo_tint": 0.24,
+        "card_bg": (28, 12, 38, 192),
+        "photo_tint": 0.10,
     },
     "dark_jungle": {
-        "overlay":    (2, 8, 4),
-        "overlay2":   (5, 20, 10),
+        "overlay":    (2, 7, 3),
+        "overlay2":   (4, 18, 8),
         "accent":     (72, 230, 115),
-        "accent2":    (30, 140, 65),
+        "accent2":    (28, 135, 60),
         "primary":    (255, 255, 255),
-        "secondary":  (148, 238, 175),
-        "bloom_color":(10, 60, 25),
-        "font_h": "bold",   "size_h": 88,
-        "font_b": "reg",    "size_b": 40,
+        "secondary":  (155, 240, 180),
+        "bloom_color":(8, 55, 22),
+        "font_h": "bold",  "size_h": 88,
+        "font_b": "reg",   "size_b": 42,
         "dots":    (72, 230, 115),
-        "card_bg": (1, 5, 2, 222),
-        "photo_tint": 0.18,
+        "card_bg": (1, 4, 2, 208),
+        "photo_tint": 0.08,
         "glow": True,
+    },
+    # ── New airy palettes ─────────────────────────────────────────────────────
+    "sage": {
+        "overlay":    (10, 18, 6),
+        "overlay2":   (22, 40, 14),
+        "accent":     (138, 190, 105),   # soft sage green
+        "accent2":    (92, 138, 65),
+        "primary":    (252, 252, 242),   # warm cream white
+        "secondary":  (205, 232, 188),   # pale sage
+        "bloom_color":(55, 95, 35),
+        "font_h": "bold",  "size_h": 84,
+        "font_b": "light", "size_b": 42,
+        "dots":    (138, 190, 105),
+        "card_bg": (6, 14, 4, 188),
+        "photo_tint": 0.06,              # let photos breathe
+    },
+    "ivory": {
+        "overlay":    (25, 16, 8),
+        "overlay2":   (48, 32, 16),
+        "accent":     (200, 168, 105),   # champagne gold
+        "accent2":    (148, 115, 58),
+        "primary":    (255, 253, 242),   # warm ivory
+        "secondary":  (228, 208, 172),   # warm linen
+        "bloom_color":(115, 82, 38),
+        "font_h": "bold",  "size_h": 84,
+        "font_b": "light", "size_b": 42,
+        "dots":    (200, 168, 105),
+        "card_bg": (18, 11, 5, 190),
+        "photo_tint": 0.07,
     },
 }
 
@@ -422,14 +451,14 @@ def _text_block(
 # ── Layout renderers ──────────────────────────────────────────────────────────
 
 def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Full-bleed, minimal overlay on bottom 45%, dramatic large headline."""
-    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=205)
+    """Full-bleed photo, soft bottom gradient, dramatic headline."""
+    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=168)
     draw   = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
     fh  = _font(s["font_h"], s["size_h"] + 10)
-    cx, mw = W // 2, W - 140
-    ty  = int(H * 0.58)
+    cx, mw = W // 2, W - 120
+    ty  = int(H * 0.60)
     ey  = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=24)
     ey += 4
     _accent_line(draw, s["accent"], cx, ey)
@@ -438,18 +467,26 @@ def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 
 def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Photo top 52%, bold text area bottom 48%."""
-    result = _overlay_bottom(img, s["overlay"], alpha_top=18, alpha_bot=235)
+    """Photo top half, editorial text bar bottom half."""
+    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=205)
     draw   = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    split_y = int(H * 0.52)
-    draw.rectangle([0, split_y, W, split_y + 2], fill=(*s["accent"][:3], 150))
+    split_y = int(H * 0.50)
+    # Soft gradient separator instead of hard line
+    sep = Image.new("RGBA", result.size, (0, 0, 0, 0))
+    sd  = ImageDraw.Draw(sep)
+    r, g, b = s["accent"][:3]
+    for dy in range(6):
+        a = int((1 - dy / 6) * 120)
+        sd.line([(0, split_y + dy), (W, split_y + dy)], fill=(r, g, b, a))
+    result = Image.alpha_composite(result.convert("RGBA"), sep)
+    draw   = ImageDraw.Draw(result)
 
     fh  = _font(s["font_h"], s["size_h"])
     fb  = _font(s["font_b"], s["size_b"])
-    result = _text_block(draw, result, slide, s, cx=W // 2, mw=W - 160,
-                         ty=split_y + 46, fh=fh, fb=fb)
+    result = _text_block(draw, result, slide, s, cx=W // 2, mw=W - 140,
+                         ty=split_y + 52, fh=fh, fb=fb)
     return result.convert("RGB")
 
 
@@ -506,9 +543,9 @@ def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 
 def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Heavy blur + oversized centered text — pure typographic power."""
-    blurred = img.filter(ImageFilter.GaussianBlur(radius=14))
-    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=170, alpha_bot=238)
+    """Soft blur + oversized centered text — pure typographic power."""
+    blurred = img.filter(ImageFilter.GaussianBlur(radius=10))
+    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=145, alpha_bot=215)
     draw    = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
@@ -529,6 +566,60 @@ def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     return result.convert("RGB")
 
 
+def _layout_minimal(img: Image.Image, slide: dict, s: dict) -> Image.Image:
+    """Photo-forward: image occupies 78% of slide, soft bottom strip only."""
+    # Full overlay very light — only for color grading cohesion
+    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=60)
+
+    # Strong gradient only in the bottom 30% — text zone
+    ov  = Image.new("RGBA", result.size, (0, 0, 0, 0))
+    ovd = ImageDraw.Draw(ov)
+    zone = int(H * 0.70)
+    r, g, b = s["overlay"]
+    for y in range(zone, H):
+        t = (y - zone) / (H - zone)
+        a = int(t ** 0.75 * 225)
+        ovd.line([(0, y), (W, y)], fill=(r, g, b, a))
+    result = Image.alpha_composite(result.convert("RGBA"), ov)
+
+    draw = ImageDraw.Draw(result)
+    _progress_dots(draw, s, slide["index"])
+
+    fh = _font(s["font_h"], s["size_h"] + 12)
+    cx, mw = W // 2, W - 100
+    ty  = int(H * 0.72)
+    ey  = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=26)
+    ey += 4
+    _accent_line(draw, s["accent"], cx, ey)
+    _handle(draw, s)
+    return result.convert("RGB")
+
+
+def _layout_editorial(img: Image.Image, slide: dict, s: dict) -> Image.Image:
+    """Magazine-style: large translucent number + editorial headline + body."""
+    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=178)
+    draw   = ImageDraw.Draw(result)
+    _progress_dots(draw, s, slide["index"])
+
+    # Faint large number — editorial texture
+    slide_num = (slide.get("index", 0) % 10) + 1
+    fn = _font("bold", 260)
+    num_str = f"{slide_num:02d}"
+    bb  = draw.textbbox((0, 0), num_str, font=fn)
+    nw, nh = bb[2] - bb[0], bb[3] - bb[1]
+    nx  = W // 2 - nw // 2
+    ny  = int(H * 0.30) - nh // 2
+    draw.text((nx, ny), num_str, font=fn, fill=(*s["accent"][:3], 28))
+
+    # Headline starts below the number zone
+    fh  = _font(s["font_h"], s["size_h"])
+    fb  = _font(s["font_b"], s["size_b"])
+    ty  = int(H * 0.54)
+    result = _text_block(draw, result, slide, s,
+                         cx=W // 2, mw=W - 130, ty=ty, fh=fh, fb=fb, gap_h=18, gap_b=14)
+    return result.convert("RGB")
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 _LAYOUT_FN = {
@@ -536,6 +627,8 @@ _LAYOUT_FN = {
     "split":             _layout_split,
     "card":              _layout_card,
     "quote":             _layout_quote,
+    "minimal":           _layout_minimal,
+    "editorial":         _layout_editorial,
     "pattern_interrupt": _layout_quote,
 }
 
@@ -543,11 +636,12 @@ _LAYOUT_FN = {
 def compose_slide(
     slide: dict,
     bg_image: Path | None,
-    style_name: Style,
+    style_name: Style | str,
     output_path: Path,
     total_slides: int = 10,
+    style_override: dict | None = None,
 ) -> Path:
-    s      = STYLES[style_name]
+    s      = style_override if style_override else STYLES.get(style_name, STYLES["botanico"])
     layout = slide.get("layout", "hero")
     fn     = _LAYOUT_FN.get(layout, _layout_hero)
 
