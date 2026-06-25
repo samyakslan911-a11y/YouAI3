@@ -366,44 +366,72 @@ function ScheduleButton({ filename }: { filename: string }) {
   );
 }
 
-function PublishButton({ filename }: { filename: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [url, setUrl] = useState("");
-  const [err, setErr] = useState("");
+const PLATFORM_META = {
+  youtube:   { label: "YouTube", color: "hover:bg-red-600 hover:border-red-500 hover:text-white",   doneColor: "bg-red-600/20 text-red-400 border-red-500/30" },
+  tiktok:    { label: "TikTok",  color: "hover:bg-black hover:border-zinc-500 hover:text-white",     doneColor: "bg-zinc-800 text-zinc-300 border-zinc-600" },
+  instagram: { label: "IG Reel", color: "hover:bg-pink-600 hover:border-pink-500 hover:text-white",  doneColor: "bg-pink-600/20 text-pink-400 border-pink-500/30" },
+} as const;
 
-  async function publish() {
-    setState("loading");
+type PlatformId = keyof typeof PLATFORM_META;
+
+function PlatformButtons({ filename, published: initialPublished }: {
+  filename: string;
+  published?: Record<string, string>;
+}) {
+  const [platforms, setPlatforms] = useState<Record<string, { configured: boolean; hint: string }>>({});
+  const [states, setStates] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
+  const [urls, setUrls] = useState<Record<string, string>>(initialPublished ?? {});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    api.getPlatforms().then(p => setPlatforms(p)).catch(() => {});
+  }, []);
+
+  async function publish(platform: PlatformId) {
+    setStates(s => ({ ...s, [platform]: "loading" }));
     try {
-      const res = await api.publishClip(filename, "youtube");
-      setUrl(res.url);
-      setState("done");
+      const res = await api.publishClip(filename, platform);
+      setUrls(u => ({ ...u, [platform]: res.url }));
+      setStates(s => ({ ...s, [platform]: "done" }));
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Error al publicar");
-      setState("error");
+      setErrors(er => ({ ...er, [platform]: e instanceof Error ? e.message : "Error" }));
+      setStates(s => ({ ...s, [platform]: "error" }));
     }
   }
 
-  if (state === "done") return (
-    <a href={url} target="_blank" rel="noreferrer"
-      className="flex items-center gap-1.5 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl transition-colors w-fit font-medium">
-      <ExternalLink size={10} /> Ver en YouTube
-    </a>
-  );
-
-  if (state === "error") return (
-    <p className="text-[10px] text-red-400/80 line-clamp-2" title={err}>
-      {err.includes("Credenciales") ? "YouTube no configurado" : err.slice(0, 60)}
-    </p>
-  );
-
   return (
-    <button onClick={publish} disabled={state === "loading"}
-      className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-red-600 disabled:opacity-40 text-zinc-400 hover:text-white border border-zinc-700 hover:border-red-500 px-3 py-1.5 rounded-xl transition-all w-fit font-medium group">
-      {state === "loading"
-        ? <Loader2 size={10} className="animate-spin" />
-        : <Upload size={10} className="group-hover:scale-110 transition-transform" />}
-      {state === "loading" ? "Publicando…" : "Publicar"}
-    </button>
+    <div className="flex flex-wrap gap-1.5">
+      {(Object.keys(PLATFORM_META) as PlatformId[]).map(p => {
+        const meta = PLATFORM_META[p];
+        const cfg = platforms[p];
+        const st = states[p] ?? "idle";
+        const publishedUrl = urls[p];
+
+        if (publishedUrl || st === "done") return (
+          <a key={p} href={publishedUrl} target="_blank" rel="noreferrer"
+            className={`flex items-center gap-1 text-[11px] border px-2.5 py-1 rounded-lg transition-colors ${meta.doneColor}`}>
+            <CheckCircle2 size={9} /> {meta.label}
+          </a>
+        );
+
+        const notConfigured = cfg && !cfg.configured;
+        return (
+          <button key={p}
+            onClick={() => publish(p)}
+            disabled={st === "loading" || notConfigured}
+            title={notConfigured ? cfg.hint : `Publicar en ${meta.label}`}
+            className={`flex items-center gap-1 text-[11px] bg-zinc-800 border border-zinc-700 text-zinc-500 px-2.5 py-1 rounded-lg transition-all
+              ${notConfigured ? "opacity-30 cursor-not-allowed" : meta.color}`}>
+            {st === "loading"
+              ? <Loader2 size={9} className="animate-spin" />
+              : st === "error"
+              ? <XCircle size={9} className="text-red-400" />
+              : <Upload size={9} />}
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -574,7 +602,7 @@ type ActiveJob = {
   url: string;
   status: string;
   logs: string[];
-  clips: { filename: string; title: string; hook: string; score?: number; virality_reason?: string }[];
+  clips: { filename: string; title: string; hook: string; score?: number; virality_reason?: string; published?: Record<string, string> }[];
   error?: string;
 };
 
@@ -839,7 +867,7 @@ function ProcessSection({
                                 className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-xl transition-colors font-medium">
                                 <Download size={11} /> Descargar
                               </a>
-                              <PublishButton filename={c.filename} />
+                              <PlatformButtons filename={c.filename} published={c.published} />
                             </div>
                           </div>
                         </motion.div>
@@ -919,7 +947,7 @@ function ClipCard({ clip: c }: { clip: import("../lib/api").Clip }) {
                 Thumb
               </button>
             )}
-            <PublishButton filename={c.filename} />
+            <PlatformButtons filename={c.filename} published={c.published} />
           </div>
           <ScheduleButton filename={c.filename} />
         </div>

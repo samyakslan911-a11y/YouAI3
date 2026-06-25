@@ -30,6 +30,7 @@ export type Clip = {
   score?: number;
   virality_reason?: string;
   thumbnail?: string;
+  published?: Record<string, string>;
 };
 
 export type Job = {
@@ -101,6 +102,9 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ platform }),
     }),
+
+  getPlatforms: () =>
+    apiFetch<Record<string, { configured: boolean; label: string; hint: string }>>("/api/platforms"),
 
   analytics: (days = 28) => apiFetch<{ report: Record<string, unknown>[] }>(`/api/analytics?days=${days}`),
 

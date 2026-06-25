@@ -206,6 +206,7 @@ def list_clips():
                 meta["score"] = saved.get("score")
                 meta["virality_reason"] = saved.get("virality_reason", "")
                 meta["thumbnail"] = saved.get("thumbnail")
+                meta["published"] = saved.get("published", {})
             except Exception:
                 pass
         clips.append(meta)
@@ -262,6 +263,26 @@ class PublishRequest(BaseModel):
     tags: List[str] = []
 
 
+@app.get("/api/platforms")
+def get_platforms():
+    """Return which platforms are configured and their published clip counts."""
+    import os
+    from pathlib import Path as P
+
+    yt_ok = bool(os.getenv("YOUTUBE_OAUTH_TOKEN_JSON") or P(os.getenv("YOUTUBE_CREDENTIALS", "credentials/youtube_oauth.json")).exists())
+    ig_ok = bool(os.getenv("INSTAGRAM_USERNAME") and os.getenv("INSTAGRAM_PASSWORD"))
+    tt_ok = P(os.getenv("TIKTOK_COOKIES_FILE", "cookies/tiktok.json")).exists()
+
+    return {
+        "youtube":   {"configured": yt_ok, "label": "YouTube Shorts",
+                      "hint": "Corre scripts/setup_youtube.py o agrega YOUTUBE_OAUTH_TOKEN_JSON"},
+        "tiktok":    {"configured": tt_ok, "label": "TikTok",
+                      "hint": "Exporta cookies con EditThisCookie y guárdalas en cookies/tiktok.json"},
+        "instagram": {"configured": ig_ok, "label": "Instagram Reels",
+                      "hint": "Agrega INSTAGRAM_USERNAME e INSTAGRAM_PASSWORD en .env"},
+    }
+
+
 @app.post("/api/clips/{filename}/publish")
 def publish_clip(filename: str, req: PublishRequest):
     path = OUTPUT_DIR / filename
@@ -270,6 +291,7 @@ def publish_clip(filename: str, req: PublishRequest):
 
     title, description, tags = req.title, req.description, req.tags
     sidecar = path.with_suffix(".json")
+    meta: dict = {}
     if sidecar.exists():
         try:
             meta = json.loads(sidecar.read_text(encoding="utf-8"))
@@ -299,6 +321,16 @@ def publish_clip(filename: str, req: PublishRequest):
 
     if not result.success:
         raise HTTPException(status_code=500, detail=result.error)
+
+    # Persist published URL in sidecar
+    if sidecar.exists():
+        try:
+            published = meta.get("published", {})
+            published[req.platform] = result.url
+            meta["published"] = published
+            sidecar.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
 
     return {"platform": result.platform, "url": result.url}
 
