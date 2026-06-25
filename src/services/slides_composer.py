@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 log = logging.getLogger(__name__)
 
@@ -21,25 +21,21 @@ _ASSETS = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
 Layout = Literal["hero", "split", "card", "quote"]
 Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
 
-# Variable font files (Playfair Display + Montserrat, both OFL licensed)
 _FONT_FILES = {
     "playfair":   _ASSETS / "PlayfairDisplay.ttf",
     "montserrat": _ASSETS / "Montserrat.ttf",
 }
 
-# (font_file_key, variable_weight_axis) per role
 _FONT_ROLES: dict[str, tuple[str, int]] = {
-    "bold":   ("playfair",   700),   # editorial serif headlines
-    "reg":    ("montserrat", 400),   # clean body text
-    "light":  ("montserrat", 300),   # detail / handle text
-    "lightb": ("montserrat", 600),   # semi-bold accents
+    "bold":   ("playfair",   700),
+    "reg":    ("montserrat", 400),
+    "light":  ("montserrat", 300),
+    "lightb": ("montserrat", 600),
 }
 
-# System font fallbacks (Railway uses DejaVu/Liberation via fontconfig)
 _FALLBACKS: dict[str, list[str]] = {
     "bold":   ["C:/Windows/Fonts/georgiab.ttf", "C:/Windows/Fonts/georgia.ttf",
-               "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-               "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"],
+               "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"],
     "reg":    ["C:/Windows/Fonts/arial.ttf",
                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"],
     "light":  ["C:/Windows/Fonts/segoeui.ttf",
@@ -53,108 +49,187 @@ FontKey = Literal["bold", "reg", "light", "lightb"]
 
 def _font(key: FontKey, size: int) -> ImageFont.FreeTypeFont:
     if key not in _FONT_ROLES:
-        raise ValueError(f"Unknown font key '{key}'. Valid: {list(_FONT_ROLES)}")
+        raise ValueError(f"Unknown font key '{key}'")
     file_key, weight = _FONT_ROLES[key]
-    asset_path = _FONT_FILES[file_key]
-    paths = [str(asset_path)] + _FALLBACKS[key]
+    paths = [str(_FONT_FILES[file_key])] + _FALLBACKS[key]
     for path in paths:
         try:
             f = ImageFont.truetype(path, size)
             try:
                 f.set_variation_by_axes([weight])
             except (AttributeError, OSError):
-                pass  # static fallback font — use as-is
+                pass
             return f
         except OSError:
             continue
     return ImageFont.load_default()
 
 
-# ── Vibrant style definitions (moodboard aesthetic) ───────────────────────────
+# ── Style definitions ─────────────────────────────────────────────────────────
 
 STYLES: dict[str, dict] = {
     "terracota": {
-        "overlay":   (68, 20, 6),
-        "accent":    (228, 140, 65),
-        "primary":   (255, 248, 228),
-        "secondary": (220, 185, 148),
-        "font_h": "bold",  "size_h": 84,
-        "font_b": "reg",   "size_b": 40,
-        "dots":    (228, 140, 65),
-        "card_bg": (45, 12, 3, 218),
+        "overlay":    (62, 18, 5),
+        "overlay2":   (110, 40, 12),      # second gradient stop — warm burnt sienna
+        "accent":     (235, 148, 62),
+        "accent2":    (200, 90, 35),      # deeper terracotta for shadows
+        "primary":    (255, 250, 232),
+        "secondary":  (225, 192, 152),
+        "bloom_color":(180, 80, 30),      # radial bloom tint
+        "font_h": "bold",   "size_h": 86,
+        "font_b": "reg",    "size_b": 40,
+        "dots":    (235, 148, 62),
+        "card_bg": (42, 10, 2, 220),
+        "photo_tint": 0.22,
     },
     "botanico": {
-        "overlay":   (6, 26, 12),
-        "accent":    (205, 170, 55),
-        "primary":   (250, 245, 220),
-        "secondary": (148, 215, 138),
-        "font_h": "bold",  "size_h": 82,
-        "font_b": "reg",   "size_b": 40,
-        "dots":    (205, 170, 55),
-        "card_bg": (3, 16, 7, 218),
+        "overlay":    (5, 24, 10),
+        "overlay2":   (12, 48, 22),       # richer forest mid-tone
+        "accent":     (210, 178, 52),
+        "accent2":    (150, 115, 28),
+        "primary":    (252, 248, 224),
+        "secondary":  (152, 220, 142),
+        "bloom_color":(30, 80, 40),
+        "font_h": "bold",   "size_h": 84,
+        "font_b": "reg",    "size_b": 40,
+        "dots":    (210, 178, 52),
+        "card_bg": (3, 15, 6, 220),
+        "photo_tint": 0.20,
     },
     "aesthetic": {
-        "overlay":   (52, 28, 62),
-        "accent":    (232, 172, 212),
-        "primary":   (255, 248, 253),
-        "secondary": (192, 218, 190),
-        "font_h": "lightb", "size_h": 78,
+        "overlay":    (48, 24, 58),
+        "overlay2":   (72, 38, 88),
+        "accent":     (236, 178, 218),
+        "accent2":    (180, 120, 165),
+        "primary":    (255, 250, 255),
+        "secondary":  (198, 222, 196),
+        "bloom_color":(120, 60, 140),
+        "font_h": "lightb", "size_h": 80,
         "font_b": "light",  "size_b": 38,
-        "dots":    (232, 172, 212),
-        "card_bg": (38, 18, 48, 218),
+        "dots":    (236, 178, 218),
+        "card_bg": (35, 15, 45, 220),
+        "photo_tint": 0.24,
     },
     "dark_jungle": {
-        "overlay":   (2, 10, 5),
-        "accent":    (78, 225, 118),
-        "primary":   (255, 255, 255),
-        "secondary": (148, 232, 170),
-        "font_h": "bold",  "size_h": 86,
-        "font_b": "reg",   "size_b": 40,
-        "dots":    (78, 225, 118),
-        "card_bg": (1, 6, 2, 222),
+        "overlay":    (2, 8, 4),
+        "overlay2":   (5, 20, 10),
+        "accent":     (72, 230, 115),
+        "accent2":    (30, 140, 65),
+        "primary":    (255, 255, 255),
+        "secondary":  (148, 238, 175),
+        "bloom_color":(10, 60, 25),
+        "font_h": "bold",   "size_h": 88,
+        "font_b": "reg",    "size_b": 40,
+        "dots":    (72, 230, 115),
+        "card_bg": (1, 5, 2, 222),
+        "photo_tint": 0.18,
+        "glow": True,
     },
 }
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Background generators ──────────────────────────────────────────────────────
 
-def _gradient_bg(color: tuple) -> Image.Image:
-    """Gradient with noise texture for fallback when no photo is available."""
-    r, g, b = color
-    top    = (max(0, r - 20), max(0, g - 16), max(0, b - 12))
-    bottom = (min(255, r + 35), min(255, g + 26), min(255, b + 18))
-    img  = Image.new("RGB", (W, H))
-    draw = ImageDraw.Draw(img)
-    for y in range(H):
-        t = (y / H) ** 0.8
-        row = (
-            int(top[0] + (bottom[0] - top[0]) * t),
-            int(top[1] + (bottom[1] - top[1]) * t),
-            int(top[2] + (bottom[2] - top[2]) * t),
-        )
-        draw.line([(0, y), (W, y)], fill=row)
-    arr   = np.array(img, dtype=np.int16)
+def _make_radial_bloom(width: int, height: int,
+                       cx: float, cy: float, radius: int,
+                       color: tuple, max_alpha: int = 60) -> np.ndarray:
+    """Fast numpy radial gradient bloom — no loops."""
+    ys = np.arange(height, dtype=np.float32)[:, np.newaxis]
+    xs = np.arange(width,  dtype=np.float32)[np.newaxis, :]
+    dist = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)
+    mask = np.clip(1.0 - dist / radius, 0, 1) ** 1.8
+    alpha = (mask * max_alpha).astype(np.uint8)
+    layer = np.zeros((height, width, 4), dtype=np.uint8)
+    layer[:, :, 0] = color[0]
+    layer[:, :, 1] = color[1]
+    layer[:, :, 2] = color[2]
+    layer[:, :, 3] = alpha
+    return layer
+
+
+def _gradient_bg(style: dict) -> Image.Image:
+    """
+    Rich editorial gradient background with:
+    - Diagonal multi-stop gradient in style colors
+    - Accent color blooms (radial glows in corners)
+    - Subtle horizontal color band
+    - Dramatic vignette
+    - Film noise
+    """
+    c1 = style["overlay"]
+    c2 = style["overlay2"]
+    ac = style["bloom_color"]
+
+    # ── Base diagonal gradient (numpy, fast) ─────────────────────────────────
+    ys = np.linspace(0, 1, H, dtype=np.float32)[:, np.newaxis]
+    xs = np.linspace(0, 1, W, dtype=np.float32)[np.newaxis, :]
+    t  = np.clip(ys * 0.65 + xs * 0.35, 0, 1) ** 0.85
+
+    R = np.clip(c1[0] + (c2[0] - c1[0]) * t, 0, 255).astype(np.uint8)
+    G = np.clip(c1[1] + (c2[1] - c1[1]) * t, 0, 255).astype(np.uint8)
+    B = np.clip(c1[2] + (c2[2] - c1[2]) * t, 0, 255).astype(np.uint8)
+    base = Image.fromarray(np.stack([R, G, B], axis=2), "RGB").convert("RGBA")
+
+    # ── Accent bloom — top-right ──────────────────────────────────────────────
+    b1 = _make_radial_bloom(W, H, W * 0.78, H * 0.20, 460, ac, max_alpha=55)
+    base = Image.alpha_composite(base, Image.fromarray(b1, "RGBA"))
+
+    # ── Second bloom — bottom-left ────────────────────────────────────────────
+    b2 = _make_radial_bloom(W, H, W * 0.18, H * 0.82, 340, ac, max_alpha=38)
+    base = Image.alpha_composite(base, Image.fromarray(b2, "RGBA"))
+
+    # ── Warm horizontal mid-band (adds depth) ────────────────────────────────
+    band = np.zeros((H, W, 4), dtype=np.uint8)
+    ys2  = np.linspace(0, 1, H, dtype=np.float32)
+    band_a = (np.sin(np.clip(ys2, 0, 1) * np.pi) * 22).astype(np.uint8)
+    band[:, :, 0] = min(255, ac[0] + 20)
+    band[:, :, 1] = min(255, ac[1] + 15)
+    band[:, :, 2] = min(255, ac[2] + 10)
+    band[:, :, 3] = band_a[:, np.newaxis]
+    base = Image.alpha_composite(base, Image.fromarray(band, "RGBA"))
+
+    # ── Dramatic vignette (numpy) ─────────────────────────────────────────────
+    ys3 = np.linspace(-1, 1, H, dtype=np.float32)[:, np.newaxis]
+    xs3 = np.linspace(-1, 1, W, dtype=np.float32)[np.newaxis, :]
+    vig = np.clip((xs3 ** 2 * 0.6 + ys3 ** 2 * 0.9) ** 1.2, 0, 1)
+    vig_alpha = (vig * 185).astype(np.uint8)
+    vignette = np.zeros((H, W, 4), dtype=np.uint8)
+    vignette[:, :, 3] = vig_alpha
+    base = Image.alpha_composite(base, Image.fromarray(vignette, "RGBA"))
+
+    base = base.convert("RGB")
+
+    # ── Film noise ────────────────────────────────────────────────────────────
+    arr   = np.array(base, dtype=np.int16)
     noise = np.random.randint(-8, 9, arr.shape, dtype=np.int16)
-    arr   = np.clip(arr + noise, 0, 255).astype(np.uint8)
-    img   = Image.fromarray(arr, "RGB")
-    vignette = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    vdraw    = ImageDraw.Draw(vignette)
-    cx, cy   = W // 2, H // 2
-    for ring in range(200, 0, -1):
-        alpha = int(130 * ((ring / 200) ** 2))
-        vdraw.ellipse(
-            [cx - ring * 4, cy - ring * 6, cx + ring * 4, cy + ring * 6],
-            fill=(0, 0, 0, alpha),
-        )
-    return Image.alpha_composite(img.convert("RGBA"), vignette).convert("RGB")
+    return Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8), "RGB")
 
 
-def _grain_overlay(img: Image.Image, intensity: int = 13) -> Image.Image:
-    """Film grain — editorial texture that makes slides look shot on analog camera."""
-    arr   = np.array(img.convert("RGB"), dtype=np.int16)
-    grain = np.random.normal(0, intensity, arr.shape).astype(np.int16)
-    return Image.fromarray(np.clip(arr + grain, 0, 255).astype(np.uint8), "RGB")
+def _prep_photo(img: Image.Image, style: dict) -> Image.Image:
+    """
+    Color-grade background photo to match the style palette.
+    - Smart crop keeps plant subjects upper-center
+    - Subtle style tint for visual cohesion
+    - Contrast + saturation boost for punch
+    - Soft unsharp mask for crispness
+    """
+    if img.size != (W, H):
+        img = ImageOps.fit(img, (W, H), Image.LANCZOS, centering=(0.5, 0.28))
 
+    # Subtle color tint — blends the style palette into the photo
+    tint = Image.new("RGB", img.size, style["overlay2"])
+    img  = Image.blend(img, tint, alpha=style["photo_tint"])
+
+    # Contrast boost
+    img = ImageEnhance.Contrast(img).enhance(1.12)
+
+    # Sharpening for print-quality crispness
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=70, threshold=3))
+
+    return img
+
+
+# ── Overlay helpers ────────────────────────────────────────────────────────────
 
 def _overlay_bottom(base: Image.Image, color: tuple, alpha_top: int, alpha_bot: int) -> Image.Image:
     ov   = Image.new("RGBA", base.size, (0, 0, 0, 0))
@@ -162,10 +237,18 @@ def _overlay_bottom(base: Image.Image, color: tuple, alpha_top: int, alpha_bot: 
     r, g, b = color
     for y in range(H):
         t = y / H
-        a = int(alpha_top + (alpha_bot - alpha_top) * (t ** 0.5))
+        a = int(alpha_top + (alpha_bot - alpha_top) * (t ** 0.6))
         draw.line([(0, y), (W, y)], fill=(r, g, b, a))
     return Image.alpha_composite(base.convert("RGBA"), ov)
 
+
+def _grain_overlay(img: Image.Image, intensity: int = 12) -> Image.Image:
+    arr   = np.array(img.convert("RGB"), dtype=np.int16)
+    grain = np.random.normal(0, intensity, arr.shape).astype(np.int16)
+    return Image.fromarray(np.clip(arr + grain, 0, 255).astype(np.uint8), "RGB")
+
+
+# ── Typography helpers ─────────────────────────────────────────────────────────
 
 def _wrap(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
     lines: list[str] = []
@@ -191,21 +274,17 @@ def _wrap(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
 def _strip_emoji(text: str) -> str:
     import re
     return re.sub(
-        r"[\U00010000-\U0010ffff"
-        r"\U0001F300-\U0001F9FF"
-        r"☀-➿"
-        r"︀-️"
-        r"‍]+",
-        "",
-        text,
+        r"[\U00010000-\U0010ffff\U0001F300-\U0001F9FF☀-➿︀-️‍]+",
+        "", text,
     ).strip()
 
 
 def _draw_text(
     draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-    color: tuple, max_w: int, cx: int, y: int, gap: int = 14,
-    shadow: bool = True,
+    color: tuple, max_w: int, cx: int, y: int, gap: int = 16,
+    shadow_strength: int = 110,
 ) -> int:
+    """Draw centered text with a multi-layer shadow for depth."""
     text = _strip_emoji(text)
     for line in _wrap(text, font, max_w):
         if not line:
@@ -214,24 +293,41 @@ def _draw_text(
         bb = draw.textbbox((0, 0), line, font=font)
         lw, lh = bb[2] - bb[0], bb[3] - bb[1]
         x = cx - lw // 2
-        if shadow:
-            draw.text((x + 3, y + 3), line, font=font, fill=(0, 0, 0, 90))
+        # Multi-layer shadow: far soft + near hard
+        draw.text((x + 5, y + 5), line, font=font, fill=(0, 0, 0, shadow_strength - 40))
+        draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, shadow_strength))
         draw.text((x, y), line, font=font, fill=color)
         y += lh + gap
     return y
 
 
-def _accent_line(draw: ImageDraw.Draw, color: tuple, cx: int, y: int, w: int = 80) -> int:
-    """Thin editorial accent line below headline."""
-    draw.rectangle([cx - w // 2, y + 12, cx + w // 2, y + 14], fill=color)
-    return y + 32
+def _accent_line(draw: ImageDraw.Draw, color: tuple, cx: int, y: int, w: int = 72) -> int:
+    """Thin editorial accent separator."""
+    draw.rectangle([cx - w // 2, y + 14, cx + w // 2, y + 16], fill=color)
+    return y + 36
+
+
+def _glow_accent_line(base: Image.Image, color: tuple, cx: int, y: int, w: int = 72) -> tuple[Image.Image, int]:
+    """Accent line with a soft glow — for dark_jungle style."""
+    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    d     = ImageDraw.Draw(layer)
+    # Glow halo
+    for thickness in range(8, 1, -1):
+        alpha = int(40 * (thickness / 8) ** 2)
+        d.rectangle([cx - w // 2 - thickness, y + 14 - thickness,
+                     cx + w // 2 + thickness, y + 16 + thickness],
+                    fill=(*color, alpha))
+    # Core line
+    d.rectangle([cx - w // 2, y + 14, cx + w // 2, y + 16], fill=(*color, 255))
+    result = Image.alpha_composite(base.convert("RGBA"), layer)
+    return result.convert("RGB"), y + 36
 
 
 def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int = 10):
     r, sp = 4, 18
-    tw = (total - 1) * sp
-    sx = (W - tw) // 2
-    y  = 55
+    tw    = (total - 1) * sp
+    sx    = (W - tw) // 2
+    y     = 56
     for i in range(total):
         x = sx + i * sp
         if i == current:
@@ -240,114 +336,129 @@ def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int =
             draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255, 45))
 
 
-def _handle(draw: ImageDraw.Draw, style: dict, handle: str = CHANNEL_HANDLE):
-    f = _font("light", 26)
-    draw.text((W - 72, H - 46), handle, font=f, fill=(*style["accent"], 170), anchor="rm")
+def _handle(draw: ImageDraw.Draw, style: dict):
+    f = _font("light", 25)
+    draw.text((W - 68, H - 44), CHANNEL_HANDLE, font=f,
+              fill=(*style["accent"][:3], 160), anchor="rm")
 
 
-def _page_number(draw: ImageDraw.Draw, current: int, total: int, s: dict) -> None:
-    """Editorial page counter — bottom left, light font."""
+def _page_number(draw: ImageDraw.Draw, current: int, total: int, s: dict):
     f = _font("light", 24)
-    draw.text((64, H - 46), f"{current + 1:02d} / {total:02d}", font=f,
-              fill=(*s["accent"], 150))
+    draw.text((62, H - 44), f"{current + 1:02d} / {total:02d}", font=f,
+              fill=(*s["accent"][:3], 145))
 
 
 def _text_block(
-    draw: ImageDraw.Draw, slide: dict, s: dict,
+    draw: ImageDraw.Draw, base_img: Image.Image,
+    slide: dict, s: dict,
     cx: int, mw: int, ty: int,
     fh: ImageFont.FreeTypeFont, fb: ImageFont.FreeTypeFont,
-    gap_h: int = 18, gap_b: int = 12,
-) -> None:
+    gap_h: int = 18, gap_b: int = 13,
+) -> Image.Image:
+    """Headline → accent line → body → handle. Returns updated image (glow line may modify it)."""
     ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=gap_h)
-    ey = _accent_line(draw, s["accent"], cx, ey)
+    ey += 4
+
+    # Use glow accent for dark styles (flagged with "glow": True), plain for others
+    if s.get("glow"):
+        base_img = base_img.convert("RGB")
+        base_img, ey = _glow_accent_line(base_img, s["accent"], cx, ey)
+        draw = ImageDraw.Draw(base_img)
+    else:
+        ey = _accent_line(draw, s["accent"], cx, ey)
+
     if slide.get("body"):
         _draw_text(draw, slide["body"], fb, s["secondary"], mw, cx, ey, gap=gap_b)
     _handle(draw, s)
+    return base_img
 
 
 # ── Layout renderers ──────────────────────────────────────────────────────────
 
 def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Full-bleed photo, strong gradient only on bottom 45%, large editorial headline."""
-    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=200)
+    """Full-bleed, minimal overlay on bottom 45%, dramatic large headline."""
+    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=205)
     draw   = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    fh = _font(s["font_h"], s["size_h"] + 8)
-    pad, cx, mw = 72, W // 2, W - 144
-    ty = int(H * 0.60)
-    ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=22)
+    fh  = _font(s["font_h"], s["size_h"] + 10)
+    cx, mw = W // 2, W - 140
+    ty  = int(H * 0.58)
+    ey  = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=24)
+    ey += 4
     _accent_line(draw, s["accent"], cx, ey)
     _handle(draw, s)
     return result.convert("RGB")
 
 
 def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Photo top 52%, text area bottom 48% with clean separator."""
-    result = _overlay_bottom(img, s["overlay"], alpha_top=25, alpha_bot=230)
+    """Photo top 52%, bold text area bottom 48%."""
+    result = _overlay_bottom(img, s["overlay"], alpha_top=18, alpha_bot=235)
     draw   = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
     split_y = int(H * 0.52)
-    draw.rectangle([0, split_y, W, split_y + 2], fill=(*s["accent"], 140))
+    draw.rectangle([0, split_y, W, split_y + 2], fill=(*s["accent"][:3], 150))
 
-    fh = _font(s["font_h"], s["size_h"])
-    fb = _font(s["font_b"], s["size_b"])
-    _text_block(draw, slide, s, cx=W // 2, mw=W - 160, ty=split_y + 44, fh=fh, fb=fb)
+    fh  = _font(s["font_h"], s["size_h"])
+    fb  = _font(s["font_b"], s["size_b"])
+    result = _text_block(draw, result, slide, s, cx=W // 2, mw=W - 160,
+                         ty=split_y + 46, fh=fh, fb=fb)
     return result.convert("RGB")
 
 
 def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Blurred full photo + floating frosted card with headline + body."""
-    blurred = img.filter(ImageFilter.GaussianBlur(radius=8))
-    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=90, alpha_bot=170)
+    """Blurred photo + frosted floating card with border glow."""
+    blurred = img.filter(ImageFilter.GaussianBlur(radius=9))
+    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=85, alpha_bot=175)
     draw    = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    card_pad = 56
-    card_x1, card_x2 = card_pad, W - card_pad
-    card_y1, card_y2 = int(H * 0.27), int(H * 0.87)
+    pad = 52
+    cx1, cx2 = pad, W - pad
+    cy1, cy2 = int(H * 0.26), int(H * 0.88)
 
-    card_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
-    card_draw  = ImageDraw.Draw(card_layer)
-    card_draw.rounded_rectangle(
-        [card_x1, card_y1, card_x2, card_y2],
-        radius=28, fill=s["card_bg"],
-    )
-    # Subtle card border for editorial depth
-    card_draw.rounded_rectangle(
-        [card_x1, card_y1, card_x2, card_y2],
-        radius=28, outline=(*s["accent"][:3], 50), width=1,
-    )
-    result = Image.alpha_composite(result.convert("RGBA"), card_layer)
+    card = Image.new("RGBA", result.size, (0, 0, 0, 0))
+    cd   = ImageDraw.Draw(card)
+    # Card fill
+    cd.rounded_rectangle([cx1, cy1, cx2, cy2], radius=30, fill=s["card_bg"])
+    # Card border
+    cd.rounded_rectangle([cx1, cy1, cx2, cy2], radius=30,
+                          outline=(*s["accent"][:3], 60), width=1)
+    # Subtle inner glow at top of card
+    cd.rounded_rectangle([cx1+1, cy1+1, cx2-1, cy1+80], radius=28,
+                          fill=(*s["accent"][:3], 18))
+    result = Image.alpha_composite(result.convert("RGBA"), card)
     draw   = ImageDraw.Draw(result)
 
-    fh = _font(s["font_h"], s["size_h"] - 8)
-    fb = _font(s["font_b"], s["size_b"] - 2)
-    _text_block(draw, slide, s, cx=W // 2, mw=card_x2 - card_x1 - 64,
-                ty=card_y1 + 50, fh=fh, fb=fb, gap_h=16, gap_b=12)
+    fh = _font(s["font_h"], s["size_h"] - 6)
+    fb = _font(s["font_b"], s["size_b"])
+    result = _text_block(draw, result, slide, s, cx=W // 2, mw=cx2 - cx1 - 60,
+                         ty=cy1 + 52, fh=fh, fb=fb, gap_h=16, gap_b=13)
     return result.convert("RGB")
 
 
 def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Heavy blur + overlay, oversized centered text — pattern interrupt slide."""
-    blurred = img.filter(ImageFilter.GaussianBlur(radius=12))
-    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=165, alpha_bot=230)
+    """Heavy blur + oversized centered text — pure typographic power."""
+    blurred = img.filter(ImageFilter.GaussianBlur(radius=14))
+    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=170, alpha_bot=238)
     draw    = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    fh  = _font(s["font_h"], s["size_h"] + 10)
-    fb  = _font(s["font_b"], s["size_b"])
-    mw  = W - 120
-    # Large decorative quote mark
-    fq  = _font("bold", 180)
+    # Large decorative quote mark (very faint — editorial texture)
+    fq  = _font("bold", 220)
     bb  = draw.textbbox((0, 0), "“", font=fq)
-    draw.text((W // 2 - (bb[2] - bb[0]) // 2, int(H * 0.08)),
-              "“", font=fq, fill=(*s["accent"][:3], 40))
+    qx  = W // 2 - (bb[2] - bb[0]) // 2
+    draw.text((qx, int(H * 0.06)), "“", font=fq,
+              fill=(*s["accent"][:3], 35))
 
-    lines_h = len(_wrap(slide["headline"], fh, mw)) * (s["size_h"] + 24)
-    ty = max(int(H * 0.30), (H - lines_h) // 2 - 60)
-    _text_block(draw, slide, s, cx=W // 2, mw=mw, ty=ty, fh=fh, fb=fb, gap_h=22, gap_b=12)
+    fh  = _font(s["font_h"], s["size_h"] + 12)
+    fb  = _font(s["font_b"], s["size_b"])
+    mw  = W - 110
+    lines_h = len(_wrap(slide["headline"], fh, mw)) * (s["size_h"] + 26)
+    ty  = max(int(H * 0.28), (H - lines_h) // 2 - 70)
+    result = _text_block(draw, result, slide, s, cx=W // 2, mw=mw,
+                         ty=ty, fh=fh, fb=fb, gap_h=22, gap_b=13)
     return result.convert("RGB")
 
 
@@ -374,23 +485,19 @@ def compose_slide(
     fn     = _LAYOUT_FN.get(layout, _layout_hero)
 
     if bg_image and bg_image.exists():
-        img = Image.open(bg_image).convert("RGB")
-        if img.size != (W, H):
-            # Smart crop: keep subject in upper-center (plants/nature subjects tend to be there)
-            img = ImageOps.fit(img, (W, H), Image.LANCZOS, centering=(0.5, 0.3))
-        # Subtle sharpening for print-quality crispness
-        img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=65, threshold=3))
+        raw = Image.open(bg_image).convert("RGB")
+        img = _prep_photo(raw, s)
     else:
-        img = _gradient_bg(s["overlay"])
+        img = _gradient_bg(s)
 
     result = fn(img, slide, s)
 
-    # Editorial page counter (drawn after layout so it sits on top)
-    page_draw = ImageDraw.Draw(result)
-    _page_number(page_draw, slide.get("index", 0), total_slides, s)
+    # Editorial page counter
+    draw = ImageDraw.Draw(result)
+    _page_number(draw, slide.get("index", 0), total_slides, s)
 
-    # Film grain overlay — gives editorial analog texture to every slide
-    result = _grain_overlay(result.convert("RGB"), intensity=13)
+    # Film grain — analog editorial texture
+    result = _grain_overlay(result.convert("RGB"), intensity=12)
 
     result.save(output_path, quality=95)
     log.info(f"  Slide {slide['index']:02d} [{layout}] -> {output_path.name}")
