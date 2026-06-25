@@ -1190,41 +1190,70 @@ function SlidesGeneratorSection() {
       {/* Form */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
         {/* Profiles row */}
-        <div className="flex gap-2 flex-wrap items-center">
-          <button onClick={() => selectProfile(null)}
-            className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${!selectedProfile ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500'}`}>
-            General
-          </button>
-          {profiles.map(p => (
-            <button key={p.id} onClick={() => selectProfile(p.id)}
-              className={`px-3 py-1.5 rounded-lg border text-xs transition-all flex items-center gap-1.5 ${selectedProfile === p.id ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
-              {p.name}
+        <div className="space-y-2">
+          <div className="flex gap-2 flex-wrap items-center">
+            <button onClick={() => selectProfile(null)}
+              className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${!selectedProfile ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
+              General
             </button>
-          ))}
-          <div className="flex items-center gap-1.5 ml-auto">
-            {creatingProfile ? (
-              <>
-                <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && createProfile()}
-                  placeholder="Nombre de categoría..."
-                  autoFocus
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 w-52" />
-                <button onClick={createProfile} disabled={!newProfileName.trim() || generatingProfile}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs disabled:opacity-40 flex items-center gap-1">
-                  {generatingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  {generatingProfile ? 'Generando...' : 'Crear'}
+            {profiles.map(p => (
+              <div key={p.id} className="group relative">
+                <button onClick={() => selectProfile(p.id)}
+                  className={`px-3 py-1.5 pr-7 rounded-lg border text-xs transition-all ${selectedProfile === p.id ? 'bg-emerald-900/40 border-emerald-600/40 text-emerald-300' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
+                  {p.name}
                 </button>
-                <button onClick={() => setCreatingProfile(false)} className="text-zinc-600 hover:text-zinc-400 p-1">
-                  <X className="w-3.5 h-3.5" />
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await api.deleteProfile(p.id).catch(() => {});
+                    setProfiles(prev => prev.filter(x => x.id !== p.id));
+                    if (selectedProfile === p.id) setSelectedProfile(null);
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
+                  <X className="w-2.5 h-2.5" />
                 </button>
-              </>
-            ) : (
-              <button onClick={() => setCreatingProfile(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-zinc-700 text-zinc-600 hover:text-zinc-400 text-xs transition-all">
-                <span>+</span> Nueva categoría
-              </button>
-            )}
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {creatingProfile ? (
+                <>
+                  <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && createProfile()}
+                    placeholder="Nombre de categoría..."
+                    autoFocus
+                    className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 w-52" />
+                  <button onClick={createProfile} disabled={!newProfileName.trim() || generatingProfile}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs disabled:opacity-40 flex items-center gap-1.5">
+                    {generatingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    {generatingProfile ? 'Generando perfil IA...' : 'Crear'}
+                  </button>
+                  <button onClick={() => { setCreatingProfile(false); setNewProfileName(""); }} className="text-zinc-600 hover:text-zinc-400 p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setCreatingProfile(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 text-xs transition-all">
+                  <Sparkles className="w-3 h-3" /> Nueva categoría IA
+                </button>
+              )}
+            </div>
           </div>
+          {/* Active profile detail — content angles */}
+          {selectedProfile && (() => {
+            const p = profiles.find(pr => pr.id === selectedProfile);
+            if (!p?.content_angles?.length) return null;
+            return (
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <span className="text-zinc-600 text-xs">Ángulos:</span>
+                {p.content_angles.map((angle, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-md bg-zinc-800/70 text-zinc-500 text-xs border border-zinc-700/50">
+                    {angle}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex gap-3">

@@ -134,11 +134,13 @@ def generate(
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
 
+        _extra_kw = profile.image_keywords if profile else None
+
         def _fetch_one(slide: dict) -> tuple[int, Path | None]:
             idx = slide.get("index", 0)
             slide_tmp = tmp_path / f"slide_{idx:02d}"
             slide_tmp.mkdir(exist_ok=True)
-            return idx, slides_imager.fetch_image(slide, slide_tmp)
+            return idx, slides_imager.fetch_image(slide, slide_tmp, extra_keywords=_extra_kw)
 
         bg_by_idx: dict[int, Path | None] = {}
         with ThreadPoolExecutor(max_workers=min(len(slides), 6)) as pool:

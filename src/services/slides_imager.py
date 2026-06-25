@@ -158,19 +158,23 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def fetch_image(slide: dict, tmp_dir: Path) -> Path | None:
+def fetch_image(
+    slide: dict,
+    tmp_dir: Path,
+    extra_keywords: list[str] | None = None,
+) -> Path | None:
     """
     Download candidate photos for a slide and return the best one.
+    extra_keywords: profile image_keywords used as fallback if primary search yields < 2 results.
     Returns None if all sources fail (caller should use gradient fallback).
     """
+    import random as _random
     tmp_dir.mkdir(parents=True, exist_ok=True)
     candidates: list[Path] = []
 
     image_type = slide.get("image_type", "lifestyle")
     species    = slide.get("species")
     query      = slide.get("image_query", "succulent plant indoor")
-    # Plants/nature: keep upper part of frame where subject usually sits
-    # Lifestyle/brand: center crop looks better
     bias = 0.25 if image_type == "species" else 0.5
 
     # 1. iNaturalist for species slides
@@ -183,12 +187,23 @@ def fetch_image(slide: dict, tmp_dir: Path) -> Path | None:
             if len(candidates) >= 4:
                 break
 
-    # 2. Pexels for lifestyle or as supplement
+    # 2. Pexels primary query
     if len(candidates) < 3:
         pexels_query = query if image_type == "lifestyle" else f"{species or ''} {query}".strip()
         urls = _pexels_photos(pexels_query, n=6)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_{i}.jpg"
+            if _download(url, dest, top_bias=bias):
+                candidates.append(dest)
+            if len(candidates) >= 6:
+                break
+
+    # 3. Profile keyword fallback if primary search was thin
+    if len(candidates) < 2 and extra_keywords:
+        kw = _random.choice(extra_keywords)
+        urls = _pexels_photos(kw, n=4)
+        for i, url in enumerate(urls):
+            dest = tmp_dir / f"pexels_kw_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
             if len(candidates) >= 6:

@@ -1,15 +1,18 @@
 import json
 import logging
 import os
+import sqlite3
 import time
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from src.utils.config import OUTPUT_DIR
+
 log = logging.getLogger(__name__)
 
-PROFILES_FILE = Path("data/profiles.json")
+DB_PATH = OUTPUT_DIR / "jobs.db"
 
 _PROFILE_PROMPT = """\
 Eres un experto en content marketing para Instagram y TikTok.
@@ -35,35 +38,73 @@ class ContentProfile:
     created_at: str
 
 
-def load_profiles() -> list[ContentProfile]:
-    if not PROFILES_FILE.exists():
-        return []
-    raw = json.loads(PROFILES_FILE.read_text(encoding="utf-8"))
-    return [ContentProfile(**p) for p in raw]
+def _init_table() -> None:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS content_profiles (
+                id            TEXT PRIMARY KEY,
+                name          TEXT NOT NULL,
+                expert_context TEXT NOT NULL,
+                style         TEXT NOT NULL,
+                content_angles TEXT NOT NULL,
+                image_keywords TEXT NOT NULL,
+                created_at    TEXT NOT NULL
+            )
+        """)
 
 
-def save_profiles(profiles: list[ContentProfile]) -> None:
-    PROFILES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PROFILES_FILE.write_text(
-        json.dumps([asdict(p) for p in profiles], ensure_ascii=False, indent=2),
-        encoding="utf-8",
+def _row(row: tuple) -> ContentProfile:
+    return ContentProfile(
+        id=row[0], name=row[1], expert_context=row[2], style=row[3],
+        content_angles=json.loads(row[4]),
+        image_keywords=json.loads(row[5]),
+        created_at=row[6],
     )
 
 
+def load_profiles() -> list[ContentProfile]:
+    _init_table()
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT id, name, expert_context, style, content_angles, image_keywords, created_at "
+            "FROM content_profiles ORDER BY created_at"
+        ).fetchall()
+    return [_row(r) for r in rows]
+
+
 def get_profile(profile_id: str) -> ContentProfile | None:
-    for p in load_profiles():
-        if p.id == profile_id:
-            return p
-    return None
+    _init_table()
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT id, name, expert_context, style, content_angles, image_keywords, created_at "
+            "FROM content_profiles WHERE id = ?",
+            (profile_id,),
+        ).fetchone()
+    return _row(row) if row else None
 
 
 def delete_profile(profile_id: str) -> bool:
-    profiles = load_profiles()
-    filtered = [p for p in profiles if p.id != profile_id]
-    if len(filtered) == len(profiles):
-        return False
-    save_profiles(filtered)
-    return True
+    _init_table()
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute("DELETE FROM content_profiles WHERE id = ?", (profile_id,))
+    return cursor.rowcount > 0
+
+
+def _save(profile: ContentProfile) -> None:
+    _init_table()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO content_profiles "
+            "(id, name, expert_context, style, content_angles, image_keywords, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                profile.id, profile.name, profile.expert_context, profile.style,
+                json.dumps(profile.content_angles, ensure_ascii=False),
+                json.dumps(profile.image_keywords, ensure_ascii=False),
+                profile.created_at,
+            ),
+        )
 
 
 def generate_profile(name: str) -> ContentProfile:
@@ -100,8 +141,8 @@ def generate_profile(name: str) -> ContentProfile:
         raise RuntimeError(f"All Gemini models failed: {last_err}")
 
     import re as _re
-    raw = _re.sub(r'^```[a-z]*\s*', '', raw, flags=_re.MULTILINE)
-    raw = _re.sub(r'```\s*$', '', raw, flags=_re.MULTILINE)
+    raw = _re.sub(r"^```[a-z]*\s*", "", raw, flags=_re.MULTILINE)
+    raw = _re.sub(r"```\s*$", "", raw, flags=_re.MULTILINE)
     raw = raw.strip()
 
     depth, start = 0, -1
@@ -113,23 +154,25 @@ def generate_profile(name: str) -> ContentProfile:
         elif ch == "}":
             depth -= 1
             if depth == 0 and start != -1:
-                raw = raw[start:i + 1]
+                raw = raw[start : i + 1]
                 break
 
     data = json.loads(raw)
+
+    valid_styles = {"botanico", "dark_jungle", "terracota", "aesthetic"}
+    style = data.get("style", "botanico")
+    if style not in valid_styles:
+        style = "botanico"
 
     profile = ContentProfile(
         id=str(uuid.uuid4())[:8],
         name=name,
         expert_context=data["expert_context"],
-        style=data["style"],
-        content_angles=data["content_angles"],
-        image_keywords=data["image_keywords"],
+        style=style,
+        content_angles=data.get("content_angles", []),
+        image_keywords=data.get("image_keywords", []),
         created_at=date.today().isoformat(),
     )
 
-    profiles = load_profiles()
-    profiles.append(profile)
-    save_profiles(profiles)
-
+    _save(profile)
     return profile
