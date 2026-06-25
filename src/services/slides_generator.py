@@ -159,7 +159,7 @@ def generate(
                 image_sources["pexels"] += 1
 
             out_png = img_dir / f"{idx:02d}.png"
-            slides_composer.compose_slide(slide, bg, style, out_png)
+            slides_composer.compose_slide(slide, bg, style, out_png, total_slides=len(slides))
             image_paths.append(out_png)
 
     src_summary = f"inat={image_sources['inat']} pexels={image_sources['pexels']} fallback={image_sources['fallback']}"

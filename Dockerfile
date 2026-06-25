@@ -38,7 +38,10 @@ RUN mkdir -p /tmp/cv_face && \
 WORKDIR /app
 COPY . .
 
-RUN mkdir -p output tmp credentials
+RUN mkdir -p output tmp credentials assets/fonts
+
+# Download premium open-source fonts (Playfair Display + Montserrat)
+RUN python scripts/download_fonts.py
 
 EXPOSE 8000
 

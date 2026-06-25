@@ -7,8 +7,87 @@ import {
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
   ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
   CalendarClock, CheckCircle2, XCircle, Trash2, LayoutGrid, Copy,
-  ChevronLeft, ImageIcon, Scissors,
+  ChevronLeft, ImageIcon, Scissors, X,
 } from "lucide-react";
+
+// ── Slide lightbox ─────────────────────────────────────────────────────────────
+function SlideModal({
+  images, slug, current, total, onClose, onGoto,
+}: {
+  images: string[]; slug: string; current: number; total: number;
+  onClose: () => void; onGoto: (i: number) => void;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft")  onGoto(Math.max(0, current - 1));
+      if (e.key === "ArrowRight") onGoto(Math.min(images.length - 1, current + 1));
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [current, images.length, onClose, onGoto]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-50 bg-black/96 backdrop-blur-sm flex items-center justify-center"
+      onClick={onClose}
+    >
+      {/* Counter */}
+      <div className="absolute top-5 left-1/2 -translate-x-1/2 text-zinc-400 text-sm font-mono tabular-nums select-none">
+        {current + 1} / {total}
+      </div>
+
+      {/* Close */}
+      <button onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all z-10">
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Image */}
+      <motion.div
+        key={current}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.15 }}
+        className="relative h-[90vh] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
+        onClick={e => e.stopPropagation()}
+      >
+        <img
+          src={api.slideImageUrl(slug, images[current])}
+          alt={`Slide ${current + 1}`}
+          className="w-full h-full object-cover"
+        />
+      </motion.div>
+
+      {/* Prev */}
+      {current > 0 && (
+        <button
+          onClick={e => { e.stopPropagation(); onGoto(current - 1); }}
+          className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all">
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+      )}
+      {/* Next */}
+      {current < images.length - 1 && (
+        <button
+          onClick={e => { e.stopPropagation(); onGoto(current + 1); }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all">
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Dot nav */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5" onClick={e => e.stopPropagation()}>
+        {images.map((_, i) => (
+          <button key={i} onClick={() => onGoto(i)}
+            className={`rounded-full transition-all ${i === current ? "w-5 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/35 hover:bg-white/60"}`} />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function fmt(n: number) {
@@ -1019,6 +1098,7 @@ function SlidesGeneratorSection() {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
   const [slideIdx, setSlideIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [publishState, setPublishState] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
 
@@ -1136,7 +1216,11 @@ function SlidesGeneratorSection() {
               className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full disabled:opacity-20 transition-colors" disabled={slideIdx === 0}>
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <div className="w-56 aspect-[4/5] rounded-xl overflow-hidden bg-zinc-800 shadow-2xl">
+            <div
+              className="w-72 aspect-[4/5] rounded-xl overflow-hidden bg-zinc-800 shadow-2xl cursor-zoom-in ring-1 ring-white/5 hover:ring-emerald-500/30 transition-all"
+              onClick={() => setLightboxOpen(true)}
+              title="Click para ver en pantalla completa"
+            >
               <img src={api.slideImageUrl(result.slug, result.images[slideIdx])} alt={`Slide ${slideIdx + 1}`} className="w-full h-full object-cover" />
             </div>
             <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))}
@@ -1210,6 +1294,20 @@ function SlidesGeneratorSection() {
           )}
         </div>
       )}
+
+      {/* Fullscreen lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && result && (
+          <SlideModal
+            images={result.images}
+            slug={result.slug}
+            current={slideIdx}
+            total={result.images.length}
+            onClose={() => setLightboxOpen(false)}
+            onGoto={(i) => setSlideIdx(i)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
