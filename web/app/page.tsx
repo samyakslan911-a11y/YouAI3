@@ -1481,27 +1481,22 @@ function SlidesCreatorStudio() {
             })()}
 
             <div className={selectedProfile && profiles.find(p => p.id === selectedProfile)?.brand_accent_hex ? "opacity-30 pointer-events-none space-y-2" : "space-y-2"}>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium">Estilo</span>
-                <div className="ml-auto flex items-center gap-2">
-                  {/* Slide count selector */}
-                  <div className="flex items-center gap-1 bg-zinc-800/60 border border-zinc-700/60 rounded-lg p-0.5">
+                <div className="ml-auto flex items-center gap-1.5">
+                  <span className="text-zinc-700 text-[10px] mr-0.5">Slides</span>
+                  <div className="flex items-center gap-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded-lg p-0.5">
                     {[5, 7, 10, 15].map(n => (
                       <button key={n} onClick={() => setSlideCount(n)}
-                        className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                           slideCount === n
-                            ? "bg-zinc-600 text-zinc-100"
+                            ? "bg-zinc-600 text-white shadow-sm"
                             : "text-zinc-500 hover:text-zinc-300"
                         }`}>
                         {n}
                       </button>
                     ))}
                   </div>
-                  <span className="text-zinc-600 text-xs">slides</span>
-                  <input type="number" min={1} max={10} placeholder="—"
-                    title="Parte de serie"
-                    onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-10 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center text-xs focus:outline-none focus:border-zinc-600 transition" />
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap items-center">
@@ -1739,29 +1734,13 @@ function SlidesCreatorStudio() {
           {/* Progress steps */}
           <AnimatePresence>
             {status === "running" && (
-              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="space-y-2 pt-1">
-                <div className="flex items-center gap-2">
-                  {GEN_STEPS.map((step, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <motion.span
-                          animate={{ opacity: [0.25, 1, 0.25], scale: [0.8, 1.1, 0.8] }}
-                          transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.32 }}
-                          className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"
-                        />
-                        <span className="text-zinc-500 text-xs">{step}</span>
-                      </div>
-                      {i < GEN_STEPS.length - 1 && <span className="text-zinc-700 text-xs">›</span>}
-                    </div>
-                  ))}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="pt-1">
+                <div className="h-0.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+                  <motion.div className="h-full bg-emerald-500/60 rounded-full"
+                    animate={{ width: ["8%", "55%", "80%", "92%"] }}
+                    transition={{ duration: 28, ease: "easeOut" }} />
                 </div>
-                {liveLog && (
-                  <motion.p key={liveLog} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
-                    className="text-zinc-600 text-xs font-mono pl-0.5 truncate">
-                    › {liveLog}
-                  </motion.p>
-                )}
               </motion.div>
             )}
             {status === "error" && (
@@ -1791,12 +1770,41 @@ function SlidesCreatorStudio() {
             <motion.div key="generating"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex-1 p-5 flex flex-col gap-4">
-              <div className="flex items-center gap-2.5 pb-1">
-                <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                <span className="text-zinc-400 text-sm font-medium truncate">Generando: {topic}</span>
-              </div>
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {Array.from({ length: 10 }).map((_, i) => (
+              {/* Generation header — active step derived from liveLog */}
+              {(() => {
+                const activeStep = liveLog.toLowerCase().includes("imagen") || liveLog.toLowerCase().includes("foto") || liveLog.toLowerCase().includes("descarg")
+                  ? 1
+                  : liveLog.toLowerCase().includes("compon") || liveLog.toLowerCase().includes("slide") || liveLog.toLowerCase().includes("listo")
+                  ? 2 : 0;
+                return (
+                  <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center gap-2.5">
+                      <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin shrink-0" />
+                      <span className="text-zinc-300 text-sm font-medium truncate max-w-[180px]">{topic}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {["Contenido", "Fotos", "Slides"].map((step, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all duration-500 ${
+                            i === activeStep
+                              ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
+                              : i < activeStep
+                              ? "text-zinc-500 line-through"
+                              : "text-zinc-700"
+                          }`}>
+                            {i < activeStep && <Check className="w-2.5 h-2.5 mr-0.5" />}
+                            {i === activeStep && <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.2, repeat: Infinity }} className="w-1 h-1 rounded-full bg-emerald-400 mr-1 inline-block" />}
+                            {step}
+                          </div>
+                          {i < 2 && <span className="text-zinc-800 text-[9px]">›</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className={`grid gap-2 ${slideCount <= 5 ? "grid-cols-3 sm:grid-cols-5" : slideCount <= 7 ? "grid-cols-4 sm:grid-cols-5" : "grid-cols-4 sm:grid-cols-5"}`}>
+                {Array.from({ length: slideCount }).map((_, i) => (
                   <motion.div key={i}
                     initial={{ opacity: 0, scale: 0.9, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1813,9 +1821,9 @@ function SlidesCreatorStudio() {
                 ))}
               </div>
               {liveLog && (
-                <motion.p key={liveLog} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className="text-zinc-500 text-xs font-mono">
-                  › {liveLog}
+                <motion.p key={liveLog} initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }}
+                  className="text-zinc-600 text-[10px] font-mono truncate">
+                  {liveLog}
                 </motion.p>
               )}
             </motion.div>
