@@ -1871,9 +1871,6 @@ function SlidesCreatorStudio() {
                         <ImageIcon className="w-3 h-3" /> Ampliar
                       </div>
                     </div>
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 rounded-full px-2 py-0.5 text-white/60 text-[11px] font-mono">
-                      {slideIdx + 1} / {result.images.length}
-                    </div>
                   </div>
                   <button onClick={() => { setSlideIdx(i => Math.min(result.images.length - 1, i + 1)); setEditingSlide(false); }} disabled={slideIdx === result.images.length - 1}
                     className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 border border-zinc-700/40 transition-all">
