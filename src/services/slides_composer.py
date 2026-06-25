@@ -408,10 +408,10 @@ def _draw_text(
 ) -> int:
     """Draw centered text. Dark text (light themes) auto-skips heavy shadow."""
     text = _strip_emoji(text)
-    # Auto-detect light theme by text color brightness: dark text → minimal shadow
+    # Dark text = light theme: no shadow (shadow on cream looks blurry at small scale)
     brightness = sum(color[:3]) if len(color) >= 3 else 765
     if brightness < 300:
-        shadow_strength = min(shadow_strength, 18)  # barely-visible shadow on light bg
+        shadow_strength = 0
     for line in _wrap(text, font, max_w):
         if not line:
             y += gap
@@ -485,7 +485,7 @@ def _glow_accent_line(base: Image.Image, color: tuple, cx: int, y: int, w: int =
     return result.convert("RGB"), y + 36
 
 
-def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int = 10):
+def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int = 5):
     sp = 16
     tw = (total - 1) * sp
     sx = (W - tw) // 2
@@ -537,7 +537,7 @@ def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     """Full-bleed photo, soft bottom gradient, dramatic headline."""
     result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=168)
     draw   = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    _progress_dots(draw, s, slide["index"], slide.get("_total", 5))
 
     fh  = _font(s["font_h"], s["size_h"] + 10)
     cx, mw = W // 2, W - 120
@@ -576,7 +576,7 @@ def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
         result = Image.alpha_composite(result.convert("RGBA"), sep)
         draw   = ImageDraw.Draw(result)
 
-    _progress_dots(draw, s, slide.get("index", 0))
+    _progress_dots(draw, s, slide.get("index", 0), slide.get("_total", 5))
 
     ty = int(H * 0.50)
     fh = _font(s["font_h"], s["size_h"])
@@ -588,10 +588,15 @@ def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     """Blurred photo + frosted floating card with border glow."""
-    blurred = img.filter(ImageFilter.GaussianBlur(radius=9))
-    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=85, alpha_bot=175)
+    light = s.get("theme") == "light"
+    if light:
+        # Light theme: keep photo clear at top, cream card floats over gradient base
+        result = img.convert("RGBA")
+    else:
+        blurred = img.filter(ImageFilter.GaussianBlur(radius=9))
+        result  = _overlay_bottom(blurred, s["overlay"], alpha_top=85, alpha_bot=175)
     draw    = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    _progress_dots(draw, s, slide["index"], slide.get("_total", 5))
 
     pad = 52
     cx1, cx2 = pad, W - pad
@@ -648,7 +653,7 @@ def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:  # noq
         blurred = img.filter(ImageFilter.GaussianBlur(radius=10))
         result  = _overlay_bottom(blurred, s["overlay"], alpha_top=145, alpha_bot=215)
     draw    = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide.get("index", 0))
+    _progress_dots(draw, s, slide.get("index", 0), slide.get("_total", 5))
 
     # Large decorative quote mark
     fq  = _font("bold", 220)
@@ -686,7 +691,7 @@ def _layout_minimal(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     result = Image.alpha_composite(result.convert("RGBA"), ov)
 
     draw = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    _progress_dots(draw, s, slide["index"], slide.get("_total", 5))
 
     fh = _font(s["font_h"], s["size_h"] + 12)
     cx, mw = W // 2, W - 100
@@ -702,17 +707,18 @@ def _layout_editorial(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     """Magazine-style: large translucent number + editorial headline + body."""
     result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=178)
     draw   = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    _progress_dots(draw, s, slide["index"], slide.get("_total", 5))
 
-    # Faint large number — editorial texture
-    slide_num = (slide.get("index", 0) % 10) + 1
-    fn = _font("bold", 260)
-    num_str = f"{slide_num:02d}"
-    bb  = draw.textbbox((0, 0), num_str, font=fn)
-    nw, nh = bb[2] - bb[0], bb[3] - bb[1]
-    nx  = W // 2 - nw // 2
-    ny  = int(H * 0.30) - nh // 2
-    draw.text((nx, ny), num_str, font=fn, fill=(*s["accent"][:3], 28))
+    # Faint large number — editorial texture (skip for light theme: too visible on cream)
+    if not s.get("theme") == "light":
+        slide_num = (slide.get("index", 0) % 10) + 1
+        fn = _font("bold", 260)
+        num_str = f"{slide_num:02d}"
+        bb  = draw.textbbox((0, 0), num_str, font=fn)
+        nw, nh = bb[2] - bb[0], bb[3] - bb[1]
+        nx  = W // 2 - nw // 2
+        ny  = int(H * 0.30) - nh // 2
+        draw.text((nx, ny), num_str, font=fn, fill=(*s["accent"][:3], 28))
 
     # Headline starts below the number zone
     fh  = _font(s["font_h"], s["size_h"])
@@ -755,7 +761,8 @@ def compose_slide(
     else:
         img = _gradient_bg_light(s) if light else _gradient_bg(s)
 
-    result = fn(img, slide, s)
+    slide_ctx = {**slide, "_total": total_slides}
+    result = fn(img, slide_ctx, s)
 
     # Film grain — analog editorial texture
     result = _grain_overlay(result.convert("RGB"), intensity=12)
