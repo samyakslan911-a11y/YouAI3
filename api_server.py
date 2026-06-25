@@ -110,6 +110,21 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                 except Exception as te:
                     log(f"Thumbnail omitido: {te}")
 
+                # Upload to R2
+                try:
+                    from src.services import storage
+                    r2_url = storage.upload_clip(clip_path)
+                    if r2_url:
+                        meta["r2_url"] = r2_url
+                        log(f"R2 upload OK: {clip_path.name}")
+                    if meta.get("thumbnail"):
+                        from pathlib import Path as P
+                        r2_thumb = storage.upload_thumbnail(OUTPUT_DIR / meta["thumbnail"])
+                        if r2_thumb:
+                            meta["r2_thumbnail"] = r2_thumb
+                except Exception as re:
+                    log(f"R2 upload omitido: {re}")
+
                 sidecar = clip_path.with_suffix(".json")
                 sidecar.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
                 job = job_store.get(job_id)
@@ -422,6 +437,17 @@ def create_slides(req: SlidesRequest, background_tasks: BackgroundTasks):
         job_store.update(job_id, status="running")
         try:
             meta = slides_generator.generate(req.topic, req.style, req.series_part)
+            # Upload slides to R2
+            try:
+                from src.services import storage
+                slug = meta["slug"]
+                slides_dir = SLIDES_OUTPUT / slug / "images"
+                for img_name in meta.get("images", []):
+                    storage.upload_slide_image(slug, img_name, slides_dir / img_name)
+                if meta.get("video"):
+                    storage.upload_slide_video(slug, SLIDES_OUTPUT / slug / "video.mp4")
+            except Exception as se:
+                pass  # R2 optional
             job_store.update(job_id, status="done", clips=[{
                 "slug": meta["slug"],
                 "title": meta["title"],

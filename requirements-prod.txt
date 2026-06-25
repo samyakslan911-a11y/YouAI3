@@ -12,3 +12,4 @@ anthropic>=0.111
 openai>=1.60
 opencv-python-headless>=4.8.0
 Pillow>=10.0
+boto3>=1.34
