@@ -111,11 +111,11 @@ export const api = {
   analyticsInsights: (days = 28) =>
     apiFetch<{ insights: string[] }>(`/api/analytics/insights?days=${days}`, { method: "POST" }),
 
-  createSlides: (topic: string, style: string, series_part?: number, profile_id?: string) =>
+  createSlides: (topic: string, style: string, series_part?: number, profile_id?: string, slide_count?: number) =>
     apiFetch<{ job_id: string }>("/api/slides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, style, series_part, profile_id: profile_id ?? "" }),
+      body: JSON.stringify({ topic, style, series_part, profile_id: profile_id ?? "", slide_count: slide_count ?? 10 }),
     }),
 
   listSlides: () =>

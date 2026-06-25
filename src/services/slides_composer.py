@@ -19,7 +19,7 @@ CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@milokira")
 _ASSETS = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
 
 Layout = Literal["hero", "split", "card", "quote", "minimal", "editorial"]
-Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle", "sage", "ivory"]
+Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle", "sage", "ivory", "milokira"]
 
 _FONT_FILES = {
     "playfair":   _ASSETS / "PlayfairDisplay.ttf",
@@ -125,6 +125,24 @@ STYLES: dict[str, dict] = {
         "photo_tint": 0.08,
         "glow": True,
     },
+    # ── Milokira brand template (light minimal) ───────────────────────────────
+    "milokira": {
+        # Brand colors from milokira palette
+        "overlay":    (247, 244, 235),  # cream #f7f4eb — used as light bg
+        "overlay2":   (240, 236, 220),  # slightly deeper cream
+        "accent":     (141, 167, 129),  # sage green #8da781
+        "accent2":    (105, 132, 96),   # darker sage
+        "primary":    (28, 25, 18),     # near-black for headlines
+        "secondary":  (72, 62, 50),     # warm dark gray for body
+        "bloom_color":(188, 163, 210),  # muted lavender (#ecd4ff dimmed)
+        "font_h": "bold",  "size_h": 80,
+        "font_b": "light", "size_b": 40,
+        "dots":    (141, 167, 129),     # sage dots
+        "card_bg": (247, 244, 235, 228),# cream card background
+        "photo_tint": 0.0,
+        "theme":   "light",
+    },
+
     # ── New airy palettes ─────────────────────────────────────────────────────
     "sage": {
         "overlay":    (10, 18, 6),
@@ -234,6 +252,70 @@ def _gradient_bg(style: dict) -> Image.Image:
     return Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8), "RGB")
 
 
+def _gradient_bg_light(style: dict) -> Image.Image:
+    """
+    Light-theme gradient background: warm cream base with soft lavender bloom
+    and gentle paper texture. Used when no photo is available.
+    """
+    c1 = style["overlay"]   # cream
+    c2 = style["overlay2"]  # slightly deeper cream
+
+    ys = np.linspace(0, 1, H, dtype=np.float32)[:, np.newaxis]
+    xs = np.linspace(0, 1, W, dtype=np.float32)[np.newaxis, :]
+    t  = np.clip(ys * 0.55 + xs * 0.45, 0, 1) ** 1.1
+
+    R = np.clip(c1[0] + (c2[0] - c1[0]) * t, 0, 255).astype(np.uint8)
+    G = np.clip(c1[1] + (c2[1] - c1[1]) * t, 0, 255).astype(np.uint8)
+    B = np.clip(c1[2] + (c2[2] - c1[2]) * t, 0, 255).astype(np.uint8)
+    base = Image.fromarray(np.stack([R, G, B], axis=2), "RGB").convert("RGBA")
+
+    # Soft lavender bloom — top-right corner
+    bloom = _make_radial_bloom(W, H, W * 0.82, H * 0.15, 500, style["bloom_color"], max_alpha=38)
+    base = Image.alpha_composite(base, Image.fromarray(bloom, "RGBA"))
+
+    # Second soft bloom — bottom-left
+    bloom2 = _make_radial_bloom(W, H, W * 0.12, H * 0.88, 380, style["bloom_color"], max_alpha=22)
+    base = Image.alpha_composite(base, Image.fromarray(bloom2, "RGBA"))
+
+    base = base.convert("RGB")
+    # Very subtle paper grain
+    arr   = np.array(base, dtype=np.int16)
+    noise = np.random.randint(-5, 6, arr.shape, dtype=np.int16)
+    return Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8), "RGB")
+
+
+def _prep_photo_light(img: Image.Image, style: dict) -> Image.Image:
+    """
+    Light-theme photo treatment:
+    - Photo fills upper ~48% with natural coloring (no darkening)
+    - Soft cream fade from ~40% down creates the text panel
+    - Slight saturation boost to keep nature photos vivid
+    """
+    if img.size != (W, H):
+        img = ImageOps.fit(img, (W, H), Image.LANCZOS, centering=(0.5, 0.28))
+
+    # Enhance — keep nature colors vivid
+    img = ImageEnhance.Color(img).enhance(1.08)
+    img = ImageEnhance.Contrast(img).enhance(1.06)
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
+
+    # Cream panel rising from bottom
+    ov   = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ovd  = ImageDraw.Draw(ov)
+    cream = style["overlay"]   # (#f7f4eb)
+    fade_start = int(H * 0.38)
+    fade_end   = int(H * 0.50)
+    for y in range(fade_start, H):
+        if y < fade_end:
+            t = (y - fade_start) / (fade_end - fade_start)
+            a = int(t ** 1.4 * 255)
+        else:
+            a = 255
+        ovd.line([(0, y), (W, y)], fill=(*cream, a))
+
+    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+
 def _prep_photo(img: Image.Image, style: dict) -> Image.Image:
     """
     Color-grade background photo to match the style palette.
@@ -324,8 +406,12 @@ def _draw_text(
     color: tuple, max_w: int, cx: int, y: int, gap: int = 16,
     shadow_strength: int = 110,
 ) -> int:
-    """Draw centered text with a multi-layer shadow for depth."""
+    """Draw centered text. Dark text (light themes) auto-skips heavy shadow."""
     text = _strip_emoji(text)
+    # Auto-detect light theme by text color brightness: dark text → minimal shadow
+    brightness = sum(color[:3]) if len(color) >= 3 else 765
+    if brightness < 300:
+        shadow_strength = min(shadow_strength, 18)  # barely-visible shadow on light bg
     for line in _wrap(text, font, max_w):
         if not line:
             y += gap
@@ -333,9 +419,9 @@ def _draw_text(
         bb = draw.textbbox((0, 0), line, font=font)
         lw, lh = bb[2] - bb[0], bb[3] - bb[1]
         x = cx - lw // 2
-        # Multi-layer shadow: far soft + near hard
-        draw.text((x + 5, y + 5), line, font=font, fill=(0, 0, 0, shadow_strength - 40))
-        draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, shadow_strength))
+        if shadow_strength > 0:
+            draw.text((x + 5, y + 5), line, font=font, fill=(0, 0, 0, max(0, shadow_strength - 40)))
+            draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, shadow_strength))
         draw.text((x, y), line, font=font, fill=color)
         y += lh + gap
     return y
@@ -369,7 +455,8 @@ def _draw_bullets(
         for wline in wrapped:
             bb = draw.textbbox((0, 0), wline, font=font)
             lh = bb[3] - bb[1]
-            draw.text((tx + 2, y + 2), wline, font=font, fill=(0, 0, 0, 90))
+            if sum(text_color[:3]) > 300:  # light text = dark theme, add shadow
+                draw.text((tx + 2, y + 2), wline, font=font, fill=(0, 0, 0, 90))
             draw.text((tx, y), wline, font=font, fill=text_color)
             y += lh + gap // 2
         y += gap // 3
@@ -403,14 +490,14 @@ def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int =
     tw = (total - 1) * sp
     sx = (W - tw) // 2
     y  = 54
+    light = style.get("theme") == "light"
+    inactive = (20, 18, 12, 55) if light else (255, 255, 255, 55)
     for i in range(total):
         x = sx + i * sp
         if i == current:
-            # Active: accent color pill
-            draw.rounded_rectangle([x - 7, y - 3, x + 7, y + 3], radius=3, fill=(*style["dots"][:3], 230))
+            draw.rounded_rectangle([x - 7, y - 3, x + 7, y + 3], radius=3, fill=(*style["dots"][:3], 220))
         else:
-            # Inactive: tiny white dot
-            draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(255, 255, 255, 55))
+            draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=inactive)
 
 
 def _handle(draw: ImageDraw.Draw, style: dict):
@@ -464,25 +551,38 @@ def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     """Photo top half, editorial text bar bottom half."""
-    result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=205)
-    draw   = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    light = s.get("theme") == "light"
 
-    split_y = int(H * 0.50)
-    # Soft gradient separator instead of hard line
-    sep = Image.new("RGBA", result.size, (0, 0, 0, 0))
-    sd  = ImageDraw.Draw(sep)
-    r, g, b = s["accent"][:3]
-    for dy in range(6):
-        a = int((1 - dy / 6) * 120)
-        sd.line([(0, split_y + dy), (W, split_y + dy)], fill=(r, g, b, a))
-    result = Image.alpha_composite(result.convert("RGBA"), sep)
-    draw   = ImageDraw.Draw(result)
+    if light:
+        # For light theme: photo already fades into cream panel via _prep_photo_light
+        # Add a thin sage accent bar at the transition point
+        result = img.convert("RGBA")
+        bar_y = int(H * 0.46)
+        r, g, b = s["accent"][:3]
+        bd = ImageDraw.Draw(result)
+        bd.rectangle([80, bar_y, W - 80, bar_y + 2], fill=(r, g, b, 180))
+        draw = ImageDraw.Draw(result)
+    else:
+        result = _overlay_bottom(img, s["overlay"], alpha_top=0, alpha_bot=205)
+        draw   = ImageDraw.Draw(result)
+        # Soft gradient separator
+        split_y = int(H * 0.50)
+        sep = Image.new("RGBA", result.size, (0, 0, 0, 0))
+        sd  = ImageDraw.Draw(sep)
+        r, g, b = s["accent"][:3]
+        for dy in range(6):
+            a = int((1 - dy / 6) * 120)
+            sd.line([(0, split_y + dy), (W, split_y + dy)], fill=(r, g, b, a))
+        result = Image.alpha_composite(result.convert("RGBA"), sep)
+        draw   = ImageDraw.Draw(result)
 
-    fh  = _font(s["font_h"], s["size_h"])
-    fb  = _font(s["font_b"], s["size_b"])
+    _progress_dots(draw, s, slide.get("index", 0))
+
+    ty = int(H * 0.50)
+    fh = _font(s["font_h"], s["size_h"])
+    fb = _font(s["font_b"], s["size_b"])
     result = _text_block(draw, result, slide, s, cx=W // 2, mw=W - 140,
-                         ty=split_y + 52, fh=fh, fb=fb)
+                         ty=ty + 52, fh=fh, fb=fb)
     return result.convert("RGB")
 
 
@@ -539,18 +639,24 @@ def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 
 def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    """Soft blur + oversized centered text — pure typographic power."""
-    blurred = img.filter(ImageFilter.GaussianBlur(radius=10))
-    result  = _overlay_bottom(blurred, s["overlay"], alpha_top=145, alpha_bot=215)
+    “””Soft blur + oversized centered text — pure typographic power.”””
+    light = s.get(“theme”) == “light”
+    if light:
+        # Light theme: cream background (gradient, no photo blur)
+        result = img.convert(“RGBA”)
+    else:
+        blurred = img.filter(ImageFilter.GaussianBlur(radius=10))
+        result  = _overlay_bottom(blurred, s[“overlay”], alpha_top=145, alpha_bot=215)
     draw    = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide["index"])
+    _progress_dots(draw, s, slide.get(“index”, 0))
 
-    # Large decorative quote mark (very faint — editorial texture)
-    fq  = _font("bold", 220)
-    bb  = draw.textbbox((0, 0), "“", font=fq)
+    # Large decorative quote mark
+    fq  = _font(“bold”, 220)
+    bb  = draw.textbbox((0, 0), ““”, font=fq)
     qx  = W // 2 - (bb[2] - bb[0]) // 2
-    draw.text((qx, int(H * 0.06)), "“", font=fq,
-              fill=(*s["accent"][:3], 35))
+    quote_alpha = 55 if light else 35
+    draw.text((qx, int(H * 0.06)), ““”, font=fq,
+              fill=(*s[“bloom_color”][:3], quote_alpha))
 
     fh  = _font(s["font_h"], s["size_h"] + 12)
     fb  = _font(s["font_b"], s["size_b"])
@@ -641,11 +747,12 @@ def compose_slide(
     layout = slide.get("layout", "hero")
     fn     = _LAYOUT_FN.get(layout, _layout_hero)
 
+    light = s.get("theme") == "light"
     if bg_image and bg_image.exists():
         raw = Image.open(bg_image).convert("RGB")
-        img = _prep_photo(raw, s)
+        img = _prep_photo_light(raw, s) if light else _prep_photo(raw, s)
     else:
-        img = _gradient_bg(s)
+        img = _gradient_bg_light(s) if light else _gradient_bg(s)
 
     result = fn(img, slide, s)
 

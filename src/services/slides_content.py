@@ -35,17 +35,39 @@ REGLAS DE CALIDAD (obligatorias):
 8. image_query en inglés: específico y visual, ej. "snake plant sansevieria pot windowsill".
 """
 
+_STRUCTURES = {
+    5:  "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
+        "- Slides 2-3 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
+        "- Slide 4 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+        "- Slide 5 (cta): call to action. layout: \"hero\"",
+
+    7:  "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
+        "- Slide 2 (contexto): por qué importa. layout: \"split\"\n"
+        "- Slides 3-5 (valor): UNA especie/idea por slide con 3-4 bullets\n"
+        "- Slide 6 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+        "- Slide 7 (cta): call to action. layout: \"hero\"",
+
+    10: "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
+        "- Slides 2-3 (contexto): por qué importa. layout: \"split\" (máx 25 palabras body)\n"
+        "- Slides 4-8 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
+        "- Slide 9 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+        "- Slide 10 (cta): call to action. layout: \"hero\"",
+
+    15: "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
+        "- Slides 2-3 (contexto): por qué importa, datos de contexto. layout: \"split\"\n"
+        "- Slides 4-12 (valor profundo): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
+        "- Slide 13 (resumen): los 3 puntos clave. layout: \"editorial\"\n"
+        "- Slide 14 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+        "- Slide 15 (cta): call to action. layout: \"hero\"",
+}
+
 _PROMPT = """\
-Genera un set de 10 slides para Instagram sobre el tema: "{topic}"
+Genera un set de {slide_count} slides para Instagram sobre el tema: "{topic}"
 Estilo visual: {style}
 {series_hint}
 
-Estructura:
-- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: "hero"
-- Slides 2-3 (contexto): por qué importa. layout: "split" (máx 25 palabras body)
-- Slides 4-8 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales
-- Slide 9 (pattern_interrupt): stat sorprendente. layout: "quote"
-- Slide 10 (cta): call to action. layout: "hero"
+Estructura ({slide_count} slides):
+{structure}
 
 {layout_rules}
 
@@ -90,7 +112,7 @@ JSON de respuesta:
 """
 
 
-def generate_content(topic: str, style: SlidStyle, series_part: int | None = None, expert_context: str | None = None) -> dict:
+def generate_content(topic: str, style: SlidStyle, series_part: int | None = None, expert_context: str | None = None, slide_count: int = 10) -> dict:
     import time
     from google import genai
     from google.genai import errors as genai_errors, types
@@ -117,12 +139,18 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     if expert_context:
         system_base = system_base + f"\n\nCONTEXTO EXPERTO:\n{expert_context}"
 
+    valid_counts = (5, 7, 10, 15)
+    sc = min(valid_counts, key=lambda x: abs(x - slide_count))
+    structure = _STRUCTURES[sc]
+
     prompt = system_base + "\n\n" + _PROMPT.format(
         topic=topic,
         style=style,
         series_hint=series_hint,
         layout_rules=_LAYOUT_RULES,
         quality_rules=_QUALITY_RULES,
+        slide_count=sc,
+        structure=structure,
     )
 
     log.info(f"Generando contenido para: {topic} ({style})")
@@ -184,18 +212,18 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     except json.JSONDecodeError as e:
         raise ValueError(f"JSON inválido de Gemini: {e}\nRaw (primeros 300 chars): {raw[:300]}")
 
-    _validate(data)
+    _validate(data, min_slides=max(3, sc - 2))
     log.info(f"  {len(data['slides'])} slides generados: {data['title']}")
     return data
 
 
-def _validate(data: dict) -> None:
+def _validate(data: dict, min_slides: int = 4) -> None:
     if "slides" not in data:
         raise ValueError("Missing slides")
     if "hashtags" not in data:
         raise ValueError("Missing hashtags")
-    if len(data["slides"]) < 8:
-        raise ValueError(f"Only {len(data['slides'])} slides")
+    if len(data["slides"]) < min_slides:
+        raise ValueError(f"Only {len(data['slides'])} slides (expected ≥{min_slides})")
     for s in data["slides"]:
         for field in ("headline", "layout", "image_type"):
             if field not in s:

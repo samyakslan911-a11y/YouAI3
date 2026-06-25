@@ -1083,6 +1083,7 @@ const BUILTIN_SWATCHES: Record<string, string> = {
   dark_jungle: "from-[#010301] via-[#020805] to-[#010602]",
   sage:        "from-[#060e04] via-[#112810] to-[#0d1f08]",
   ivory:       "from-[#130b05] via-[#221508] to-[#2e1c0a]",
+  milokira:    "from-[#f7f4eb] via-[#f0ece0] to-[#ede7d5]",
 };
 
 const DEFAULT_STYLES: StyleItem[] = [
@@ -1092,6 +1093,7 @@ const DEFAULT_STYLES: StyleItem[] = [
   { id: "dark_jungle", name: "Dark Jungle", accent_hex: "#48e673", is_custom: false },
   { id: "sage",        name: "Sage",        accent_hex: "#8abe69", is_custom: false },
   { id: "ivory",       name: "Ivory",       accent_hex: "#c8a869", is_custom: false },
+  { id: "milokira",    name: "Milokira",    accent_hex: "#8da781", is_custom: false },
 ];
 
 const STYLE_RING: Record<string, string> = {
@@ -1101,6 +1103,7 @@ const STYLE_RING: Record<string, string> = {
   dark_jungle: "ring-emerald-400/40 bg-emerald-500/10 text-emerald-300",
   sage:        "ring-green-400/40 bg-green-500/10 text-green-300",
   ivory:       "ring-amber-300/40 bg-amber-500/10 text-amber-200",
+  milokira:    "ring-stone-300/40 bg-stone-100/10 text-stone-300",
 };
 
 const STYLE_DOT: Record<string, string> = {
@@ -1110,12 +1113,14 @@ const STYLE_DOT: Record<string, string> = {
   dark_jungle: "bg-emerald-400",
   sage:        "bg-green-400",
   ivory:       "bg-amber-300",
+  milokira:    "bg-[#8da781]",
 };
 
 function SlidesCreatorStudio() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("botanico");
   const [seriesPart, setSeriesPart] = useState<number | undefined>();
+  const [slideCount, setSlideCount] = useState(10);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
@@ -1276,7 +1281,7 @@ function SlidesCreatorStudio() {
   async function generate() {
     if (!topic.trim()) return;
     setStatus("running"); setResult(null); setViewingSlug(null); setErrorMsg("");
-    const { job_id } = await api.createSlides(topic.trim(), style, seriesPart, selectedProfile ?? "");
+    const { job_id } = await api.createSlides(topic.trim(), style, seriesPart, selectedProfile ?? "", slideCount);
     setJobId(job_id);
   }
 
@@ -1476,13 +1481,27 @@ function SlidesCreatorStudio() {
             })()}
 
             <div className={selectedProfile && profiles.find(p => p.id === selectedProfile)?.brand_accent_hex ? "opacity-30 pointer-events-none space-y-2" : "space-y-2"}>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium">Estilo</span>
-                <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
-                  <span>Parte serie</span>
+                <div className="ml-auto flex items-center gap-2">
+                  {/* Slide count selector */}
+                  <div className="flex items-center gap-1 bg-zinc-800/60 border border-zinc-700/60 rounded-lg p-0.5">
+                    {[5, 7, 10, 15].map(n => (
+                      <button key={n} onClick={() => setSlideCount(n)}
+                        className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                          slideCount === n
+                            ? "bg-zinc-600 text-zinc-100"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-zinc-600 text-xs">slides</span>
                   <input type="number" min={1} max={10} placeholder="—"
+                    title="Parte de serie"
                     onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-12 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+                    className="w-10 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center text-xs focus:outline-none focus:border-zinc-600 transition" />
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap items-center">
@@ -1508,7 +1527,7 @@ function SlidesCreatorStudio() {
                           <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent" />
                         )}
                         <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
-                          <span className="text-white/90 text-[9px] font-semibold drop-shadow-md leading-none line-clamp-1">
+                          <span className={`text-[9px] font-semibold leading-none line-clamp-1 ${s.id === "milokira" ? "text-stone-600/90" : "text-white/90 drop-shadow-md"}`}>
                             {s.name}
                           </span>
                         </div>

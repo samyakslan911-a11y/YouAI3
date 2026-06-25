@@ -101,6 +101,7 @@ def generate(
     profile=None,
     style_override: dict | None = None,
     on_progress: callable = None,
+    slide_count: int = 10,
 ) -> dict:
     """
     Generate a full slide set for a topic.
@@ -126,7 +127,7 @@ def generate(
     if profile and profile.brand_voice:
         brand_voice_note = f"\n\nVOZ DE MARCA:\n{profile.brand_voice}"
         expert_context = (expert_context or "") + brand_voice_note
-    content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context)
+    content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context, slide_count=slide_count)
     _log(f"Contenido listo: {len(content['slides'])} slides")
 
     # ── 2. Fetch images in parallel, compose slides ───────────────────────────

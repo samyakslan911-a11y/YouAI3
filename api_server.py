@@ -601,6 +601,7 @@ class SlidesRequest(BaseModel):
     style: str = "botanico"     # default style name OR custom style id
     series_part: int | None = None
     profile_id: str = ""
+    slide_count: int = 10       # 5 | 7 | 10 | 15
 
 
 SLIDES_OUTPUT = OUTPUT_DIR / "slides"
@@ -651,6 +652,7 @@ def create_slides(req: SlidesRequest):
                 profile=profile_snapshot,
                 style_override=style_snap,
                 on_progress=lambda msg: job_store.append_log(job_id, msg),
+                slide_count=req.slide_count,
             )
             try:
                 from src.services import storage
