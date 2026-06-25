@@ -51,11 +51,19 @@ Estructura:
 
 {quality_rules}
 
+REGLAS DE IMAGE_QUERY (crítico para calidad visual):
+- Escribe en inglés. Sé muy específico: planta + parte + contexto + lighting.
+- INCORRECTO: "plant indoor", "succulent pot", "nature green"
+- CORRECTO especie: "monstera deliciosa large leaf close-up natural light", "snake plant sansevieria narrow leaves terracotta pot", "fiddle leaf fig ficus lyrata bright room"
+- CORRECTO lifestyle: "hands repotting plant soil close-up", "yellow leaf wilting close-up macro", "spider mites white webbing plant stem macro"
+- Para cada slide usa una query DISTINTA, específica al contenido de ese slide.
+- Evita queries genéricas. Pexels tiene millones de fotos — sé específico y encuentra la exacta.
+
 Para slides de especie (image_type: "species"):
 - "species": nombre científico exacto (ej. "Sansevieria trifasciata")
-- image_query: nombre de la planta en inglés + contexto (ej. "snake plant pot indoor")
+- image_query: nombre común inglés + parte visual + ambiente (ej. "snake plant sansevieria trifasciata narrow leaves indoor pot")
 Para slides de concepto (image_type: "lifestyle"):
-- image_query: descripción visual en inglés específica para Pexels
+- image_query: acción/objeto específico + contexto + detalle visual (ej. "overwatered plant drooping yellowing leaves close-up")
 
 JSON de respuesta:
 {{
@@ -65,11 +73,11 @@ JSON de respuesta:
     {{
       "index": 0,
       "type": "hook|context|value|pattern_interrupt|cta",
-      "layout": "hero|split|card|quote",
+      "layout": "hero|split|card|quote|minimal|editorial",
       "headline": "texto del titular",
       "body": "texto del cuerpo",
       "image_type": "species|lifestyle",
-      "image_query": "query en inglés para Pexels",
+      "image_query": "query muy específico en inglés para Pexels",
       "species": "Nombre científico o null"
     }}
   ],

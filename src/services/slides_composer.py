@@ -399,28 +399,24 @@ def _glow_accent_line(base: Image.Image, color: tuple, cx: int, y: int, w: int =
 
 
 def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int = 10):
-    r, sp = 4, 18
-    tw    = (total - 1) * sp
-    sx    = (W - tw) // 2
-    y     = 56
+    sp = 16
+    tw = (total - 1) * sp
+    sx = (W - tw) // 2
+    y  = 54
     for i in range(total):
         x = sx + i * sp
         if i == current:
-            draw.ellipse([x - r - 2, y - r - 2, x + r + 2, y + r + 2], fill=style["dots"])
+            # Active: accent color pill
+            draw.rounded_rectangle([x - 7, y - 3, x + 7, y + 3], radius=3, fill=(*style["dots"][:3], 230))
         else:
-            draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255, 45))
+            # Inactive: tiny white dot
+            draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(255, 255, 255, 55))
 
 
 def _handle(draw: ImageDraw.Draw, style: dict):
     f = _font("light", 25)
     draw.text((W - 68, H - 44), CHANNEL_HANDLE, font=f,
               fill=(*style["accent"][:3], 160), anchor="rm")
-
-
-def _page_number(draw: ImageDraw.Draw, current: int, total: int, s: dict):
-    f = _font("light", 24)
-    draw.text((62, H - 44), f"{current + 1:02d} / {total:02d}", font=f,
-              fill=(*s["accent"][:3], 145))
 
 
 def _text_block(
@@ -652,10 +648,6 @@ def compose_slide(
         img = _gradient_bg(s)
 
     result = fn(img, slide, s)
-
-    # Editorial page counter
-    draw = ImageDraw.Draw(result)
-    _page_number(draw, slide.get("index", 0), total_slides, s)
 
     # Film grain — analog editorial texture
     result = _grain_overlay(result.convert("RGB"), intensity=12)

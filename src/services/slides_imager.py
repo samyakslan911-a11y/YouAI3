@@ -130,12 +130,13 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
         )
         prompt = (
             f"Slide headline: \"{slide.get('headline', '')}\"\n"
-            f"Slide body: \"{slide.get('body', '')}\"\n\n"
-            f"I have {len(candidates)} candidate background photos for this plant/succulent social media slide. "
+            f"Image query used: \"{slide.get('image_query', '')}\"\n\n"
+            f"I have {len(candidates)} candidate background photos for an Instagram plant/nature slide. "
             f"{relevance_hint}"
-            "Pick the ONE with best: plant/nature relevance, composition (space for text at bottom), "
-            "and visual quality. Reject any photo that shows no plants. "
-            f"Reply with ONLY a single integer 0-{len(candidates)-1}."
+            "Pick the ONE photo that best matches the slide topic AND has good composition: "
+            "subject in upper 2/3, lower area clear for text overlay, natural lighting, sharp focus. "
+            "Strongly prefer photos where the subject matches the headline topic specifically. "
+            f"Reply with ONLY a single integer 0-{len(candidates)-1}. No explanation."
         )
 
         contents: list = [prompt]
@@ -199,6 +200,17 @@ def fetch_image(
         urls = _pexels_photos(pexels_query, n=6)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_{i}.jpg"
+            if _download(url, dest, top_bias=bias):
+                candidates.append(dest)
+            if len(candidates) >= 6:
+                break
+
+    # 2b. Retry with shorter query if primary was too specific and returned few results
+    if len(candidates) < 2 and " " in pexels_query:
+        short_q = " ".join(pexels_query.split()[:4])
+        urls = _pexels_photos(short_q, n=4)
+        for i, url in enumerate(urls):
+            dest = tmp_dir / f"pexels_short_{i}.jpg"
             if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
             if len(candidates) >= 6:
