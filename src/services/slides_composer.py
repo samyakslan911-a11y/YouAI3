@@ -638,25 +638,25 @@ def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     return result.convert("RGB")
 
 
-def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
-    “””Soft blur + oversized centered text — pure typographic power.”””
-    light = s.get(“theme”) == “light”
+def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:  # noqa
+    """Soft blur + oversized centered text - pure typographic power."""
+    light = s.get("theme") == "light"
     if light:
         # Light theme: cream background (gradient, no photo blur)
-        result = img.convert(“RGBA”)
+        result = img.convert("RGBA")
     else:
         blurred = img.filter(ImageFilter.GaussianBlur(radius=10))
-        result  = _overlay_bottom(blurred, s[“overlay”], alpha_top=145, alpha_bot=215)
+        result  = _overlay_bottom(blurred, s["overlay"], alpha_top=145, alpha_bot=215)
     draw    = ImageDraw.Draw(result)
-    _progress_dots(draw, s, slide.get(“index”, 0))
+    _progress_dots(draw, s, slide.get("index", 0))
 
     # Large decorative quote mark
-    fq  = _font(“bold”, 220)
-    bb  = draw.textbbox((0, 0), ““”, font=fq)
+    fq  = _font("bold", 220)
+    bb  = draw.textbbox((0, 0), """, font=fq)
     qx  = W // 2 - (bb[2] - bb[0]) // 2
     quote_alpha = 55 if light else 35
-    draw.text((qx, int(H * 0.06)), ““”, font=fq,
-              fill=(*s[“bloom_color”][:3], quote_alpha))
+    draw.text((qx, int(H * 0.06)), """, font=fq,
+              fill=(*s["bloom_color"][:3], quote_alpha))
 
     fh  = _font(s["font_h"], s["size_h"] + 12)
     fb  = _font(s["font_b"], s["size_b"])
