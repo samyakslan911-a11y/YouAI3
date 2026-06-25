@@ -365,6 +365,75 @@ def analytics_insights(days: int = 28):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Slides Generator ──────────────────────────────────────────────────────────
+
+class SlidesRequest(BaseModel):
+    topic: str
+    style: str = "botanico"
+    series_part: int | None = None
+
+
+SLIDES_OUTPUT = Path(os.getenv("OUTPUT_DIR", "output")) / "slides"
+
+
+@app.post("/api/slides")
+def create_slides(req: SlidesRequest, background_tasks: BackgroundTasks):
+    from src.services import slides_generator
+    valid_styles = {"terracota", "botanico", "aesthetic", "dark_jungle"}
+    if req.style not in valid_styles:
+        raise HTTPException(status_code=400, detail=f"style must be one of {valid_styles}")
+
+    job_id = str(uuid.uuid4())[:8]
+    job_store.create(job_id, url=f"slides:{req.topic}", status="queued")
+
+    def _run():
+        job_store.update(job_id, status="running")
+        try:
+            meta = slides_generator.generate(req.topic, req.style, req.series_part)
+            job_store.update(job_id, status="done", clips=[{
+                "slug": meta["slug"],
+                "title": meta["title"],
+                "image_count": len(meta["images"]),
+                "has_video": meta["video"] is not None,
+            }])
+        except Exception as e:
+            job_store.update(job_id, status="error", error=str(e))
+
+    background_tasks.add_task(_run)
+    return {"job_id": job_id}
+
+
+@app.get("/api/slides")
+def list_slides():
+    from src.services import slides_generator
+    return {"sets": slides_generator.list_sets()}
+
+
+@app.get("/api/slides/{slug}")
+def get_slides(slug: str):
+    from src.services import slides_generator
+    meta = slides_generator.get_set(slug)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Slide set not found")
+    return meta
+
+
+@app.get("/api/slides/{slug}/images/{filename}")
+def serve_slide_image(slug: str, filename: str):
+    path = SLIDES_OUTPUT / slug / "images" / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(str(path), media_type="image/png")
+
+
+@app.get("/api/slides/{slug}/video")
+def serve_slide_video(slug: str):
+    path = SLIDES_OUTPUT / slug / "video.mp4"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Video not found")
+    return FileResponse(str(path), media_type="video/mp4")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)

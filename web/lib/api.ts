@@ -106,4 +106,26 @@ export const api = {
 
   analyticsInsights: (days = 28) =>
     apiFetch<{ insights: string[] }>(`/api/analytics/insights?days=${days}`, { method: "POST" }),
+
+  createSlides: (topic: string, style: string, series_part?: number) =>
+    apiFetch<{ job_id: string }>("/api/slides", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, style, series_part }),
+    }),
+
+  listSlides: () =>
+    apiFetch<{ sets: { slug: string; topic: string; style: string; title: string; created_at: string; image_count: number; has_video: boolean }[] }>("/api/slides"),
+
+  getSlides: (slug: string) =>
+    apiFetch<{
+      slug: string; topic: string; style: string; title: string;
+      images: string[]; video: string | null;
+      hashtags: Record<string, string[]>;
+      hook_variants: string[];
+      created_at: string;
+    }>(`/api/slides/${slug}`),
+
+  slideImageUrl: (slug: string, filename: string) => `${BASE}/api/slides/${slug}/images/${filename}`,
+  slideVideoUrl: (slug: string) => `${BASE}/api/slides/${slug}/video`,
 };

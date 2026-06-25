@@ -6,7 +6,8 @@ import {
   Search, Zap, Video as VideoIcon, BarChart2, TrendingUp,
   Download, ChevronDown, Clock, Eye, ThumbsUp, Play, Loader2,
   ArrowRight, Sparkles, Radio, ChevronRight, Upload, ExternalLink,
-  CalendarClock, CheckCircle2, XCircle, Trash2,
+  CalendarClock, CheckCircle2, XCircle, Trash2, LayoutGrid, Copy,
+  ChevronLeft,
 } from "lucide-react";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const NAV = [
   { id: "discover",  label: "Descubrir",  Icon: Search },
   { id: "process",   label: "Procesar",   Icon: Zap },
   { id: "clips",     label: "Clips",      Icon: VideoIcon },
+  { id: "slides",    label: "Slides",     Icon: LayoutGrid },
   { id: "analytics", label: "Analytics",  Icon: BarChart2 },
 ];
 
@@ -204,6 +206,11 @@ export default function App() {
         </section>
 
         <WaveDivider />
+
+        <section id="slides" className="scroll-mt-20">
+          <SectionLabel Icon={LayoutGrid} label="Slides Generator" />
+          <SlidesSection />
+        </section>
 
         <section id="analytics" className="scroll-mt-20">
           <SectionLabel Icon={BarChart2} label="Analytics" />
@@ -953,6 +960,206 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
         <ClipCard key={c.filename} clip={c} />
       ))}
     </motion.div>
+  );
+}
+
+// ── Slides Generator ──────────────────────────────────────────────────────────
+const SLIDE_STYLES = [
+  { id: "botanico",   label: "Botánico",   color: "from-green-900 to-green-950",  dot: "bg-yellow-500" },
+  { id: "terracota",  label: "Terracota",  color: "from-orange-900 to-stone-950", dot: "bg-orange-400" },
+  { id: "aesthetic",  label: "Aesthetic",  color: "from-purple-900 to-fuchsia-950",dot: "bg-pink-300" },
+  { id: "dark_jungle",label: "Dark Jungle",color: "from-zinc-900 to-black",        dot: "bg-emerald-400" },
+];
+
+function SlidesSection() {
+  const [topic, setTopic] = useState("");
+  const [style, setStyle] = useState("botanico");
+  const [seriesPart, setSeriesPart] = useState<number | undefined>();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
+  const [sets, setSets] = useState<{ slug: string; title: string; created_at: string; image_count: number; has_video: boolean }[]>([]);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.listSlides().then(r => setSets(r.sets)).catch(() => {});
+  }, [status]);
+
+  useEffect(() => {
+    if (!jobId || status !== "running") return;
+    const iv = setInterval(async () => {
+      const job = await api.getJob(jobId).catch(() => null);
+      if (!job) return;
+      if (job.status === "done") {
+        setStatus("done");
+        const clips = job.clips as { slug?: string }[];
+        if (clips?.[0]?.slug) {
+          const meta = await api.getSlides(clips[0].slug).catch(() => null);
+          if (meta) { setResult(meta); setViewing(meta.slug); }
+        }
+        clearInterval(iv);
+      } else if (job.status === "error") {
+        setStatus("error");
+        clearInterval(iv);
+      }
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [jobId, status]);
+
+  async function generate() {
+    if (!topic.trim()) return;
+    setStatus("running");
+    setResult(null);
+    const { job_id } = await api.createSlides(topic.trim(), style, seriesPart);
+    setJobId(job_id);
+  }
+
+  async function openSet(slug: string) {
+    const meta = await api.getSlides(slug).catch(() => null);
+    if (meta) { setResult(meta); setViewing(slug); setSlideIdx(0); }
+  }
+
+  function copyHashtags(platform: string) {
+    if (!result) return;
+    const tags = (result.hashtags[platform] || []).join(" ");
+    navigator.clipboard.writeText(tags);
+    setCopied(platform);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Generator form */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+        <div className="flex gap-3">
+          <input
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && generate()}
+            placeholder="Tema: ej. suculentas de interior, cactus para principiantes…"
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+          />
+          <button
+            onClick={generate}
+            disabled={status === "running" || !topic.trim()}
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-medium flex items-center gap-2 transition-all"
+          >
+            {status === "running" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {status === "running" ? "Generando…" : "Generar"}
+          </button>
+        </div>
+
+        {/* Style picker */}
+        <div className="flex gap-2 flex-wrap">
+          {SLIDE_STYLES.map(s => (
+            <button key={s.id} onClick={() => setStyle(s.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${style === s.id ? "bg-zinc-700 border-zinc-500 text-zinc-200" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>
+              <span className={`w-2 h-2 rounded-full ${s.dot}`} />
+              {s.label}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
+            <span>Serie parte</span>
+            <input type="number" min={1} max={10} placeholder="—"
+              onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-12 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-zinc-400 text-center" />
+          </div>
+        </div>
+
+        {status === "running" && (
+          <div className="flex items-center gap-3 text-sm text-zinc-500 pt-1">
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+            Gemini generando contenido → buscando imágenes → componiendo slides…
+          </div>
+        )}
+        {status === "error" && (
+          <p className="text-red-400 text-sm">Error generando slides. Revisa los logs.</p>
+        )}
+      </div>
+
+      {/* Viewer */}
+      {result && viewing && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-zinc-200 font-medium">{result.title}</h3>
+            <span className="text-xs text-zinc-600 bg-zinc-800 px-2 py-1 rounded">{result.style}</span>
+          </div>
+
+          {/* Carousel */}
+          <div className="relative flex items-center justify-center">
+            <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))}
+              className="absolute left-0 z-10 p-2 bg-zinc-800 rounded-full hover:bg-zinc-700 disabled:opacity-20"
+              disabled={slideIdx === 0}>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="w-64 aspect-[4/5] rounded-xl overflow-hidden bg-zinc-800">
+              <img
+                src={api.slideImageUrl(result.slug, result.images[slideIdx])}
+                alt={`Slide ${slideIdx + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))}
+              className="absolute right-0 z-10 p-2 bg-zinc-800 rounded-full hover:bg-zinc-700 disabled:opacity-20"
+              disabled={slideIdx === result.images.length - 1}>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-center text-xs text-zinc-600">{slideIdx + 1} / {result.images.length}</p>
+
+          {/* Actions */}
+          <div className="flex gap-2 flex-wrap">
+            <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
+              <Download className="w-3.5 h-3.5" /> Slide actual
+            </a>
+            {result.video && (
+              <a href={api.slideVideoUrl(result.slug)} download
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
+                <Download className="w-3.5 h-3.5" /> Video MP4
+              </a>
+            )}
+            {(["instagram", "tiktok", "pinterest"] as const).map(p => (
+              <button key={p} onClick={() => copyHashtags(p)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
+                <Copy className="w-3.5 h-3.5" />
+                {copied === p ? "Copiado!" : `#${p}`}
+              </button>
+            ))}
+          </div>
+
+          {/* Hook variants */}
+          {result.hook_variants?.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-zinc-600 font-medium">Variantes del hook:</p>
+              {result.hook_variants.map((h, i) => (
+                <p key={i} className="text-xs text-zinc-500 bg-zinc-800 rounded px-3 py-1.5">
+                  {String.fromCharCode(65 + i)}. {h}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Previous sets */}
+      {sets.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-600 font-medium uppercase tracking-wider">Sets anteriores</p>
+          <div className="grid grid-cols-2 gap-2">
+            {sets.slice(0, 6).map(s => (
+              <button key={s.slug} onClick={() => openSet(s.slug)}
+                className="text-left bg-zinc-900 border border-zinc-800 rounded-xl p-3 hover:border-zinc-700 transition-all space-y-1">
+                <p className="text-zinc-300 text-xs font-medium truncate">{s.title}</p>
+                <p className="text-zinc-600 text-xs">{s.image_count} slides</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
