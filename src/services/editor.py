@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from src.utils import ffmpeg as _ffmpeg_util
 from src.utils.config import OUTPUT_DIR
 from src.utils.logger import get_logger
 
@@ -22,12 +23,7 @@ def _slugify(text: str) -> str:
 
 
 def _ffmpeg(cmd: list) -> None:
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if result.returncode != 0:
-        lines = [l for l in result.stderr.splitlines()
-                 if l and not l.startswith(" ") and "built with" not in l
-                 and "configuration" not in l and "lib" not in l]
-        raise RuntimeError("\n".join(lines[-8:]))
+    _ffmpeg_util.run(cmd)
 
 
 def get_video_duration(video_path: Path) -> float:
@@ -78,7 +74,8 @@ def _detect_face_track(video_path: Path, start: float, end: float) -> tuple[int,
     proto = model_dir / "deploy.prototxt"
     caffemodel = model_dir / "res10_300x300_ssd_iter_140000.caffemodel"
 
-    proto_url = "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt"
+    # Pinned to specific commits — "master" refs can break if files move
+    proto_url = "https://raw.githubusercontent.com/opencv/opencv/4.x/samples/dnn/face_detector/deploy.prototxt"
     model_url = "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
 
     try:
@@ -171,6 +168,10 @@ def _interpolate_word_timing(
     return events
 
 
+def _chunk_words(events: list[dict], n: int = 4) -> list[list[dict]]:
+    return [events[i:i + n] for i in range(0, len(events), n)]
+
+
 def _seconds_to_srt_ts(s: float) -> str:
     s = max(0.0, s)
     h, rem = divmod(int(s), 3600)
@@ -194,7 +195,7 @@ def _build_srt(word_events: list[dict], style: CaptionStyle) -> Path | None:
                 f"{ev['word'].upper()}\n"
             )
     else:  # subtitles: chunks of 4 words
-        chunks = [word_events[i:i + 4] for i in range(0, len(word_events), 4)]
+        chunks = _chunk_words(word_events)
         for i, chunk in enumerate(chunks, 1):
             text = " ".join(ev["word"] for ev in chunk)
             entries.append(
@@ -267,7 +268,7 @@ def _build_ass(word_events: list[dict], style: CaptionStyle) -> Path:
                 f"Default,,0,0,0,,{text}"
             )
     else:  # karaoke — groups of 4
-        chunks = [word_events[i:i + 4] for i in range(0, len(word_events), 4)]
+        chunks = _chunk_words(word_events)
         for chunk in chunks:
             start = chunk[0]["start"]
             end = chunk[-1]["end"]
@@ -319,7 +320,7 @@ def cut_and_format(
     caption_style: CaptionStyle = "none",
 ) -> Path:
     # fg filter: face-tracked crop + scale if face detected, else letterbox scale
-    if face_crop:
+    if face_crop is not None:
         cw, ch, cx, cy = face_crop
         fg_filter = f"[0:v]crop={cw}:{ch}:{cx}:{cy},scale={TARGET_W}:{TARGET_H}[fg]"
     else:

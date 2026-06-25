@@ -6,15 +6,17 @@ import json
 import sqlite3
 import threading
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.utils.config import OUTPUT_DIR
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-_DB_PATH = Path("output/jobs.db")   # same DB as job_store
+_DB_PATH = OUTPUT_DIR / "jobs.db"
 _lock = threading.Lock()
 _thread: threading.Thread | None = None
 
@@ -22,7 +24,7 @@ _thread: threading.Thread | None = None
 # ── DB ────────────────────────────────────────────────────────────────────────
 
 def _conn() -> sqlite3.Connection:
-    c = sqlite3.connect(str(_DB_PATH))
+    c = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
     c.row_factory = sqlite3.Row
     return c
 
@@ -108,9 +110,13 @@ def _worker() -> None:
     while True:
         try:
             for job in _due_jobs():
-                _execute(job)
-        except Exception as e:
-            log.error(f"Scheduler error: {e}")
+                try:
+                    _execute(job)
+                except Exception:
+                    log.error(f"Error ejecutando job {job.get('id')}:\n{traceback.format_exc()}")
+                    _mark(job["id"], "error", error="Internal scheduler error")
+        except Exception:
+            log.error(f"Scheduler loop error:\n{traceback.format_exc()}")
         time.sleep(30)
 
 
@@ -154,9 +160,21 @@ def _execute(job: dict) -> None:
         log.error(f"Publicación programada falló: {result.error}")
 
 
+def _watchdog() -> None:
+    """Restart the scheduler thread if it dies unexpectedly."""
+    while True:
+        time.sleep(60)
+        global _thread
+        if _thread and not _thread.is_alive():
+            log.warning("Scheduler thread muerto — reiniciando")
+            _thread = threading.Thread(target=_worker, daemon=True, name="scheduler")
+            _thread.start()
+
+
 def start_background() -> None:
     global _thread
     if _thread and _thread.is_alive():
         return
     _thread = threading.Thread(target=_worker, daemon=True, name="scheduler")
     _thread.start()
+    threading.Thread(target=_watchdog, daemon=True, name="scheduler-watchdog").start()

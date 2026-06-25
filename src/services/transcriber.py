@@ -50,13 +50,19 @@ def _transcribe_gemini(video_path: Path) -> list[dict]:
     )
 
     raw = response.text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-
+    # Strip markdown code fences robustly
+    raw = re.sub(r'^```[a-z]*\s*', '', raw, flags=re.MULTILINE)
+    raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE)
     raw = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
-    return json.loads(raw.strip())
+    # Extract first JSON array
+    start = raw.find('[')
+    end = raw.rfind(']') + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No JSON array in Gemini transcription response: {raw[:200]}")
+    return json.loads(raw[start:end])
+
+
+_whisper_model_cache: dict = {}
 
 
 def _transcribe_whisper(video_path: Path) -> list[dict]:
@@ -65,8 +71,12 @@ def _transcribe_whisper(video_path: Path) -> list[dict]:
     # Prefer faster-whisper (GPU/CPU optimized, supports large-v3)
     try:
         from faster_whisper import WhisperModel
-        log.info(f"Transcribiendo con faster-whisper '{WHISPER_MODEL}'...")
-        model = WhisperModel(WHISPER_MODEL, device="auto", compute_type="auto")
+        if WHISPER_MODEL not in _whisper_model_cache:
+            log.info(f"Cargando faster-whisper '{WHISPER_MODEL}'...")
+            _whisper_model_cache[WHISPER_MODEL] = WhisperModel(
+                WHISPER_MODEL, device="auto", compute_type="auto"
+            )
+        model = _whisper_model_cache[WHISPER_MODEL]
         segments, _ = model.transcribe(str(audio_path), beam_size=5, language="es")
         return [
             {"text": s.text.strip(), "start": s.start, "end": s.end}
@@ -77,15 +87,10 @@ def _transcribe_whisper(video_path: Path) -> list[dict]:
 
     # Fallback to openai-whisper
     import whisper
-    _model_cache: dict = {}
-
-    def _load(name: str):
-        if name not in _model_cache:
-            log.info(f"Cargando modelo Whisper '{name}'...")
-            _model_cache[name] = whisper.load_model(name)
-        return _model_cache[name]
-
-    model = _load(WHISPER_MODEL)
+    if WHISPER_MODEL not in _whisper_model_cache:
+        log.info(f"Cargando whisper '{WHISPER_MODEL}'...")
+        _whisper_model_cache[WHISPER_MODEL] = whisper.load_model(WHISPER_MODEL)
+    model = _whisper_model_cache[WHISPER_MODEL]
     result = model.transcribe(str(audio_path), verbose=False)
     return [
         {"text": s["text"].strip(), "start": s["start"], "end": s["end"]}

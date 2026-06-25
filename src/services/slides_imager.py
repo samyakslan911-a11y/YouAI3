@@ -56,14 +56,16 @@ def _pexels_photos(query: str, n: int = 6) -> list[str]:
     key = os.getenv("PEXELS_API_KEY", "").strip()
     if not key:
         return []
-    import urllib.parse
     url = (
         f"{PEXELS_BASE}/search"
         f"?query={urllib.parse.quote(query)}"
         f"&per_page={n}&orientation=portrait"
     )
     try:
-        req = urllib.request.Request(url, headers={"Authorization": key})
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": key, "User-Agent": "Mozilla/5.0", "Accept": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=12) as r:
             data = json.loads(r.read())
         urls = [p["src"]["portrait"] for p in data.get("photos", [])]
@@ -76,7 +78,7 @@ def _pexels_photos(query: str, n: int = 6) -> list[str]:
 
 # ── Download helper ───────────────────────────────────────────────────────────
 
-def _download(url: str, dest: Path) -> bool:
+def _download(url: str, dest: Path, top_bias: float = 0.25) -> bool:
     try:
         req = urllib.request.Request(
             url,
@@ -95,7 +97,8 @@ def _download(url: str, dest: Path) -> bool:
             img = img.crop((left, 0, left + new_w, ih))
         elif current_ratio < target_ratio:
             new_h = int(iw / target_ratio)
-            top = (ih - new_h) // 4  # bias toward top-center for plants
+            # top_bias=0 → center, 0.5 → top edge; plants/nature look better top-biased
+            top = int((ih - new_h) * top_bias)
             img = img.crop((0, top, iw, top + new_h))
         img = img.resize((W, H), Image.LANCZOS)
         img.save(dest, quality=92)
@@ -119,12 +122,19 @@ def _pick_best(candidates: list[Path], slide: dict) -> Path:
         client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
         model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+        image_type = slide.get("image_type", "lifestyle")
+        relevance_hint = (
+            "Must show plants, succulents, or nature. "
+            if image_type == "lifestyle"
+            else "Must show the plant species clearly. "
+        )
         prompt = (
             f"Slide headline: \"{slide.get('headline', '')}\"\n"
             f"Slide body: \"{slide.get('body', '')}\"\n\n"
-            f"I have {len(candidates)} candidate background photos for this slide. "
-            "Pick the ONE with best: composition (space for text at bottom), "
-            "natural lighting, subject clarity, and relevance to the headline. "
+            f"I have {len(candidates)} candidate background photos for this plant/succulent social media slide. "
+            f"{relevance_hint}"
+            "Pick the ONE with best: plant/nature relevance, composition (space for text at bottom), "
+            "and visual quality. Reject any photo that shows no plants. "
             f"Reply with ONLY a single integer 0-{len(candidates)-1}."
         )
 
@@ -159,13 +169,16 @@ def fetch_image(slide: dict, tmp_dir: Path) -> Path | None:
     image_type = slide.get("image_type", "lifestyle")
     species    = slide.get("species")
     query      = slide.get("image_query", "succulent plant indoor")
+    # Plants/nature: keep upper part of frame where subject usually sits
+    # Lifestyle/brand: center crop looks better
+    bias = 0.25 if image_type == "species" else 0.5
 
     # 1. iNaturalist for species slides
     if image_type == "species" and species:
         urls = _inat_photos(species, n=6)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"inat_{i}.jpg"
-            if _download(url, dest):
+            if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
             if len(candidates) >= 4:
                 break
@@ -176,7 +189,7 @@ def fetch_image(slide: dict, tmp_dir: Path) -> Path | None:
         urls = _pexels_photos(pexels_query, n=6)
         for i, url in enumerate(urls):
             dest = tmp_dir / f"pexels_{i}.jpg"
-            if _download(url, dest):
+            if _download(url, dest, top_bias=bias):
                 candidates.append(dest)
             if len(candidates) >= 6:
                 break

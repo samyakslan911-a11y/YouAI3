@@ -3,15 +3,17 @@ Slides Generator orchestrator.
 Coordinates content → images → composition → video → design_memory.
 """
 import json, logging, os, re, shutil, sqlite3, tempfile, uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import slides_content, slides_imager, slides_composer, slides_video
+from src.utils.config import OUTPUT_DIR as _BASE_OUTPUT_DIR
 
 log = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "output")) / "slides"
-DB_PATH    = Path(os.getenv("OUTPUT_DIR", "output")) / "jobs.db"
+OUTPUT_DIR = _BASE_OUTPUT_DIR / "slides"
+DB_PATH    = _BASE_OUTPUT_DIR / "jobs.db"
 
 
 # ── design_memory table ───────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ def generate(
     topic: str,
     style: slides_composer.Style = "botanico",
     series_part: int | None = None,
+    on_progress: callable = None,
 ) -> dict:
     """
     Generate a full slide set for a topic.
@@ -109,26 +112,45 @@ def generate(
     img_dir = out_dir / "images"
     img_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── 1. Generate content via Gemini ────────────────────────────────────────
-    top = _top_designs()
-    # TODO: inject top designs into prompt for future enhancement
-    content = slides_content.generate_content(topic, style, series_part)
+    def _log(msg: str) -> None:
+        log.info(msg)
+        if on_progress:
+            on_progress(msg)
 
-    # ── 2. Fetch & compose each slide ─────────────────────────────────────────
+    # ── 1. Generate content via Gemini ────────────────────────────────────────
+    _log("Generando contenido con Gemini...")
+    top = _top_designs()
+    content = slides_content.generate_content(topic, style, series_part)
+    _log(f"Contenido listo: {len(content['slides'])} slides")
+
+    # ── 2. Fetch images in parallel, compose slides ───────────────────────────
     image_paths: list[Path] = []
     image_sources: dict = {"inat": 0, "pexels": 0, "fallback": 0}
+    slides = content["slides"]
 
+    _log("Descargando imágenes en paralelo...")
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
 
-        for slide in content["slides"]:
-            idx = slide.get("index", len(image_paths))
+        def _fetch_one(slide: dict) -> tuple[int, Path | None]:
+            idx = slide.get("index", 0)
             slide_tmp = tmp_path / f"slide_{idx:02d}"
             slide_tmp.mkdir(exist_ok=True)
+            return idx, slides_imager.fetch_image(slide, slide_tmp)
 
-            bg = slides_imager.fetch_image(slide, slide_tmp)
+        bg_by_idx: dict[int, Path | None] = {}
+        with ThreadPoolExecutor(max_workers=min(len(slides), 6)) as pool:
+            futures = {pool.submit(_fetch_one, s): s for s in slides}
+            for fut in as_completed(futures):
+                idx, bg = fut.result()
+                bg_by_idx[idx] = bg
 
-            # Track image source
+        # Compose in index order (deterministic output)
+        _log(f"Componiendo {len(slides)} slides...")
+        for slide in sorted(slides, key=lambda s: s.get("index", 0)):
+            idx = slide.get("index", len(image_paths))
+            bg = bg_by_idx.get(idx)
+
             if bg is None:
                 image_sources["fallback"] += 1
             elif "inat" in bg.name:
@@ -140,10 +162,27 @@ def generate(
             slides_composer.compose_slide(slide, bg, style, out_png)
             image_paths.append(out_png)
 
+    src_summary = f"inat={image_sources['inat']} pexels={image_sources['pexels']} fallback={image_sources['fallback']}"
+    _log(f"Imágenes listas: {src_summary}")
+
     # ── 3. Assemble video ─────────────────────────────────────────────────────
+    # ── 3. Generate TTS narration ─────────────────────────────────────────────
+    audio_path: Path | None = None
+    try:
+        from . import slides_tts
+        narration = out_dir / "narration.mp3"
+        audio_path = slides_tts.generate_narration(content["slides"], narration)
+        if audio_path:
+            _log("Narración generada")
+    except Exception as e:
+        log.warning(f"TTS omitido: {e}")
+
+    # ── 4. Assemble video ─────────────────────────────────────────────────────
+    _log("Ensamblando video...")
     video_path = out_dir / "video.mp4"
     try:
-        slides_video.assemble_video(image_paths, video_path)
+        slides_video.assemble_video(image_paths, video_path, audio_path=audio_path)
+        _log(f"Video listo: {video_path.name}")
     except Exception as e:
         log.error(f"Video assembly failed: {e}")
         video_path = None

@@ -40,7 +40,7 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             ctx = browser.new_context()
             raw = json.loads(cookies_path.read_text(encoding="utf-8"))
             # unwrap double array (EditThisCookie fork export format)
@@ -83,8 +83,10 @@ def publish_instagram(clip_path: Path, caption: str) -> PublisherResult:
         log.info(f"Instagram Reel publicado: {url}")
         return PublisherResult("instagram", True, url=url)
     except Exception as e:
-        log.error(f"Instagram error: {e}")
-        return PublisherResult("instagram", False, error=str(e))
+        log.error(f"Instagram error: {type(e).__name__}")
+        # Sanitize: instagrapi may embed credentials in exception messages
+        safe_msg = str(e).replace(INSTAGRAM_USERNAME, "***").replace(INSTAGRAM_PASSWORD, "***")
+        return PublisherResult("instagram", False, error=safe_msg)
 
 
 # ─── YouTube Shorts ───────────────────────────────────────────────────────────

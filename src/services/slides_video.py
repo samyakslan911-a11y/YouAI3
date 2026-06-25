@@ -3,25 +3,25 @@ Assemble slide images into a 1080x1920 video with Ken Burns effect.
 Each slide: 3.5s display + 0.4s crossfade. Blurred bars fill the
 1080x1350 → 1080x1920 letterbox.
 """
-import logging, subprocess, tempfile
+import logging, tempfile
 from pathlib import Path
+
+from src.utils import ffmpeg as _ffmpeg_util
 
 log = logging.getLogger(__name__)
 
 SLIDE_W, SLIDE_H = 1080, 1350
 VIDEO_W, VIDEO_H = 1080, 1920
-SLIDE_DURATION  = 3.5   # seconds per slide
+SLIDE_DURATION  = 4.5   # seconds per slide (4.5s → 10 slides = 45s, ideal for Reels)
 FADE_DURATION   = 0.4   # crossfade between slides
 ZOOM_FACTOR     = 1.08  # Ken Burns end scale
 
 
 def _ffmpeg(cmd: list[str]) -> None:
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg error:\n{result.stderr[-2000:]}")
+    _ffmpeg_util.run(cmd)
 
 
-def assemble_video(image_paths: list[Path], output_path: Path) -> Path:
+def assemble_video(image_paths: list[Path], output_path: Path, audio_path: Path | None = None) -> Path:
     """
     Build MP4 from ordered list of PNG slide images.
     Uses Ken Burns zoom per slide + crossfade transitions.
@@ -100,23 +100,36 @@ def assemble_video(image_paths: list[Path], output_path: Path) -> Path:
 
     filter_complex = ";".join(filter_parts)
 
+    if audio_path and audio_path.exists():
+        # Audio is input index n (after n image inputs at 0..n-1)
+        audio_inputs = ["-i", str(audio_path)]
+        audio_flags  = ["-map", f"{n}:a", "-c:a", "aac", "-b:a", "128k",
+                        "-af", "volume=-3dB"]
+    else:
+        audio_inputs = []
+        audio_flags  = ["-an"]
+
     cmd = (
         ["ffmpeg", "-y"]
         + inputs
+        + audio_inputs
         + [
             "-filter_complex", filter_complex,
             "-map", "[final]",
+        ]
+        + audio_flags
+        + [
             "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "22",
+            "-preset", "veryfast",
+            "-crf", "23",
             "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
-            "-an",
             str(output_path),
         ]
     )
 
-    log.info(f"Ensamblando video: {n} slides → {output_path.name}")
+    log.info(f"Ensamblando video: {n} slides → {output_path.name}"
+             + (" + narración" if audio_path else ""))
     _ffmpeg(cmd)
     log.info(f"Video listo: {output_path.name} ({output_path.stat().st_size // 1024}KB)")
     return output_path

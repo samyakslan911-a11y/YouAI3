@@ -3,14 +3,17 @@ Compose one slide PNG (1080x1350) from a background image + slide data.
 Supports 4 layouts × 4 styles.
 """
 import logging
+import os
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 log = logging.getLogger(__name__)
 
 W, H = 1080, 1350
+CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@tucanal")
 
 Layout = Literal["hero", "split", "card", "quote"]
 Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle"]
@@ -23,7 +26,12 @@ _FONTS = {
     "lightb": ["C:/Windows/Fonts/segoeuib.ttf",   "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"],
 }
 
-def _font(key: str, size: int) -> ImageFont.FreeTypeFont:
+FontKey = Literal["bold", "reg", "light", "lightb"]
+
+
+def _font(key: FontKey, size: int) -> ImageFont.FreeTypeFont:
+    if key not in _FONTS:
+        raise ValueError(f"Unknown font key '{key}'. Valid: {list(_FONTS)}")
     for path in _FONTS[key]:
         try:
             return ImageFont.truetype(path, size)
@@ -81,16 +89,40 @@ STYLES: dict[str, dict] = {
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _gradient_bg(color: tuple) -> Image.Image:
-    img = Image.new("RGB", (W, H))
-    draw = ImageDraw.Draw(img)
+    """Two-stop gradient with subtle radial vignette — looks intentional, not broken."""
     r, g, b = color
+    # Darker shade at top, slightly warmer/lighter at bottom
+    top    = (max(0, r - 18), max(0, g - 14), max(0, b - 10))
+    bottom = (min(255, r + 30), min(255, g + 22), min(255, b + 15))
+
+    img  = Image.new("RGB", (W, H))
+    draw = ImageDraw.Draw(img)
     for y in range(H):
-        t = y / H
-        draw.line([(0, y), (W, y)], fill=(
-            int(r * (1 - t * 0.45)),
-            int(g * (1 - t * 0.45)),
-            int(b * (1 - t * 0.45)),
-        ))
+        t = (y / H) ** 0.8  # slightly ease the gradient
+        row = (
+            int(top[0] + (bottom[0] - top[0]) * t),
+            int(top[1] + (bottom[1] - top[1]) * t),
+            int(top[2] + (bottom[2] - top[2]) * t),
+        )
+        draw.line([(0, y), (W, y)], fill=row)
+
+    # Subtle noise texture (+/-6 per channel) so it reads as editorial dark bg
+    arr   = np.array(img, dtype=np.int16)
+    noise = np.random.randint(-6, 7, arr.shape, dtype=np.int16)
+    arr   = np.clip(arr + noise, 0, 255).astype(np.uint8)
+    img   = Image.fromarray(arr, "RGB")
+
+    # Soft radial vignette darkening the corners
+    vignette = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    vdraw    = ImageDraw.Draw(vignette)
+    cx, cy   = W // 2, H // 2
+    for ring in range(200, 0, -1):
+        alpha = int(120 * ((ring / 200) ** 2))  # quadratic falloff
+        vdraw.ellipse(
+            [cx - ring * 4, cy - ring * 6, cx + ring * 4, cy + ring * 6],
+            fill=(0, 0, 0, alpha),
+        )
+    img = Image.alpha_composite(img.convert("RGBA"), vignette).convert("RGB")
     return img
 
 
@@ -177,10 +209,24 @@ def _progress_dots(draw: ImageDraw.Draw, style: dict, current: int, total: int =
                          fill=(255, 255, 255, 55))
 
 
-def _handle(draw: ImageDraw.Draw, style: dict, handle: str = "@tucanal"):
+def _handle(draw: ImageDraw.Draw, style: dict, handle: str = CHANNEL_HANDLE):
     f = _font("reg", 28)
     draw.text((W - 80, H - 50), handle, font=f,
               fill=(*style["accent"], 180), anchor="rm")
+
+
+def _text_block(
+    draw: ImageDraw.Draw, slide: dict, s: dict,
+    cx: int, mw: int, ty: int,
+    fh: ImageFont.FreeTypeFont, fb: ImageFont.FreeTypeFont,
+    gap_h: int = 16, gap_b: int = 11,
+) -> None:
+    """Headline → accent line → optional body → handle. Shared by split/card/quote."""
+    ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=gap_h)
+    ey = _accent_line(draw, s["accent"], cx, ey)
+    if slide.get("body"):
+        _draw_text(draw, slide["body"], fb, s["secondary"], mw, cx, ey, gap=gap_b)
+    _handle(draw, s)
 
 
 # ── Layout renderers ──────────────────────────────────────────────────────────
@@ -205,25 +251,16 @@ def _layout_hero(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 def _layout_split(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     """Photo occupies top 55%, text area bottom 45% with heavy overlay."""
-    # Top: light overlay on photo
     result = _overlay_bottom(img, s["overlay"], alpha_top=30, alpha_bot=220)
     draw = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    # Solid reading area line (subtle separator)
     split_y = int(H * 0.54)
     draw.rectangle([0, split_y, W, split_y + 2], fill=(*s["accent"], 120))
 
     fh = _font(s["font_h"], s["size_h"])
     fb = _font(s["font_b"], s["size_b"])
-    pad, cx, mw = 75, W // 2, W - 150
-
-    ty = split_y + 40
-    ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=16)
-    ey = _accent_line(draw, s["accent"], cx, ey)
-    if slide.get("body"):
-        _draw_text(draw, slide["body"], fb, s["secondary"], mw, cx, ey, gap=11)
-    _handle(draw, s)
+    _text_block(draw, slide, s, cx=W // 2, mw=W - 150, ty=split_y + 40, fh=fh, fb=fb)
     return result.convert("RGB")
 
 
@@ -234,32 +271,23 @@ def _layout_card(img: Image.Image, slide: dict, s: dict) -> Image.Image:
     draw = ImageDraw.Draw(result)
     _progress_dots(draw, s, slide["index"])
 
-    # Card dimensions
     card_pad = 60
     card_x1, card_x2 = card_pad, W - card_pad
     card_y1, card_y2 = int(H * 0.28), int(H * 0.88)
 
-    # Draw rounded card
     card_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
     card_draw = ImageDraw.Draw(card_layer)
-    cbg = s["card_bg"]
     card_draw.rounded_rectangle(
         [card_x1, card_y1, card_x2, card_y2],
-        radius=24, fill=cbg,
+        radius=24, fill=s["card_bg"],
     )
     result = Image.alpha_composite(result.convert("RGBA"), card_layer)
     draw = ImageDraw.Draw(result)
 
     fh = _font(s["font_h"], s["size_h"] - 10)
     fb = _font(s["font_b"], s["size_b"] - 2)
-    cx, mw = W // 2, card_x2 - card_x1 - 60
-
-    ty = card_y1 + 45
-    ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=14)
-    ey = _accent_line(draw, s["accent"], cx, ey)
-    if slide.get("body"):
-        _draw_text(draw, slide["body"], fb, s["secondary"], mw, cx, ey, gap=12)
-    _handle(draw, s)
+    _text_block(draw, slide, s, cx=W // 2, mw=card_x2 - card_x1 - 60,
+                ty=card_y1 + 45, fh=fh, fb=fb, gap_h=14, gap_b=12)
     return result.convert("RGB")
 
 
@@ -272,17 +300,11 @@ def _layout_quote(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
     fh = _font(s["font_h"], s["size_h"] + 8)
     fb = _font(s["font_b"], s["size_b"])
-    cx, mw = W // 2, W - 120
-
-    # Vertical center
+    mw = W - 120
     lines_h = len(_wrap(slide["headline"], fh, mw)) * (s["size_h"] + 20)
     ty = (H - lines_h) // 2 - 40
 
-    ey = _draw_text(draw, slide["headline"], fh, s["primary"], mw, cx, ty, gap=20)
-    ey = _accent_line(draw, s["accent"], cx, ey)
-    if slide.get("body"):
-        _draw_text(draw, slide["body"], fb, s["secondary"], mw, cx, ey + 5, gap=10)
-    _handle(draw, s)
+    _text_block(draw, slide, s, cx=W // 2, mw=mw, ty=ty, fh=fh, fb=fb, gap_h=20, gap_b=10)
     return result.convert("RGB")
 
 

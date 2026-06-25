@@ -15,8 +15,20 @@ PAD_START    = 0.05  # seconds to keep before speech resumes
 PAD_END      = 0.12  # seconds to keep after speech ends (natural breath)
 
 
-def detect_silence(video_path: Path) -> list[tuple[float, float]]:
-    """Return list of (start, end) silent intervals in seconds."""
+def _probe_duration(video_path: Path) -> float:
+    """Return video duration in seconds via ffprobe."""
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)],
+        capture_output=True, text=True,
+    )
+    return float(probe.stdout.strip())
+
+
+def detect_silence(video_path: Path, duration: float | None = None) -> list[tuple[float, float]]:
+    """Return list of (start, end) silent intervals in seconds.
+    Pass duration to avoid a second ffprobe call when it's already known.
+    """
     cmd = [
         "ffmpeg", "-i", str(video_path),
         "-af", f"silencedetect=noise={SILENCE_DB}dB:d={SILENCE_DUR}",
@@ -40,6 +52,12 @@ def detect_silence(video_path: Path) -> list[tuple[float, float]]:
                 start = None
             except (IndexError, ValueError):
                 pass
+
+    # Video ends mid-silence — close the interval at the end
+    if start is not None:
+        end = duration if duration is not None else _probe_duration(video_path)
+        silences.append((start, end))
+
     return silences
 
 
@@ -64,15 +82,11 @@ def remove_silence(input_path: Path, output_path: Path) -> Path:
     Returns output_path. Falls back to input_path if removal fails or saves < 5%.
     """
     try:
-        # Get duration
-        probe = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", str(input_path)],
-            capture_output=True, text=True,
-        )
-        duration = float(probe.stdout.strip())
+        duration = _probe_duration(input_path)
+        if duration <= 0:
+            return input_path
 
-        silences = detect_silence(input_path)
+        silences = detect_silence(input_path, duration=duration)
         if not silences:
             log.info("No silence detected — skipping removal")
             return input_path

@@ -7,12 +7,14 @@ import sqlite3
 import threading
 from pathlib import Path
 
-_DB_PATH = Path("output/jobs.db")
+from src.utils.config import OUTPUT_DIR
+
+_DB_PATH = OUTPUT_DIR / "jobs.db"
 _lock = threading.Lock()
 
 
 def _conn() -> sqlite3.Connection:
-    c = sqlite3.connect(str(_DB_PATH))
+    c = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
     c.row_factory = sqlite3.Row
     return c
 
@@ -49,13 +51,22 @@ def update(job_id: str, **fields) -> None:
     cols = {k: v for k, v in fields.items() if k in allowed}
     if not cols:
         return
-    # Serialize lists to JSON
     params = {k: json.dumps(v) if isinstance(v, list) else v for k, v in cols.items()}
     set_clause = ", ".join(f"{k} = ?" for k in params)
     with _lock, _conn() as c:
         c.execute(
             f"UPDATE jobs SET {set_clause} WHERE id = ?",
             (*params.values(), job_id),
+        )
+        c.commit()
+
+
+def append_log(job_id: str, msg: str) -> None:
+    """Atomic log append — avoids read-modify-write race condition."""
+    with _lock, _conn() as c:
+        c.execute(
+            "UPDATE jobs SET logs = json_insert(logs, '$[#]', ?) WHERE id = ?",
+            (msg, job_id),
         )
         c.commit()
 

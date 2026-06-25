@@ -1,15 +1,21 @@
 import json
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from src.services import job_store, scheduler
+from src.utils.config import OUTPUT_DIR
+
+# Dedicated executor for CPU/IO-heavy pipeline jobs — keeps uvicorn's event loop free
+_pipeline_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pipeline")
 
 app = FastAPI(title="YouAI3 API")
 
@@ -23,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 @app.on_event("startup")
@@ -55,9 +60,7 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
     from src.services import downloader, transcriber, analyzer, editor
 
     def log(msg: str):
-        job = job_store.get(job_id)
-        logs = job["logs"] + [msg]
-        job_store.update(job_id, logs=logs)
+        job_store.append_log(job_id, msg)
 
     job_store.update(job_id, status="running", logs=[])
 
@@ -116,8 +119,7 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                     silenced = clip_path.with_name(clip_path.stem + "_ns.mp4")
                     result_path = silence.remove_silence(clip_path, silenced)
                     if result_path != clip_path:
-                        clip_path.unlink()
-                        silenced.rename(clip_path)
+                        silenced.replace(clip_path)  # atomic replace (works on Windows too)
                         log(f"Silencio eliminado: {clip_path.name}")
                 except Exception as se:
                     log(f"Silence removal omitido: {se}")
@@ -140,7 +142,7 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
                 sidecar = clip_path.with_suffix(".json")
                 sidecar.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
                 job = job_store.get(job_id)
-                job_store.update(job_id, clips=job["clips"] + [meta])
+                job_store.update(job_id, clips=job["clips"] + [meta])  # clips per-job, no contention
                 log(f"Clip {i+1} listo: {clip_path.name}")
             except Exception as e:
                 log(f"Clip {i+1} omitido: {e}")
@@ -151,27 +153,53 @@ def _run_pipeline(job_id: str, url: str, dry_run: bool, caption_style: str = "ca
 
     except Exception as e:
         job_store.update(job_id, status="error", error=str(e))
-        job = job_store.get(job_id)
-        job_store.update(job_id, logs=job["logs"] + [f"Error: {e}"])
+        job_store.append_log(job_id, f"Error: {e}")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    checks: dict = {"status": "ok"}
+
+    # DB reachable
+    try:
+        job_store.list_all()
+        checks["db"] = "ok"
+    except Exception as e:
+        checks["db"] = str(e)
+        checks["status"] = "degraded"
+
+    # Scheduler alive
+    try:
+        from src.services import scheduler as _sched
+        alive = getattr(_sched, "_thread", None)
+        checks["scheduler"] = "ok" if (alive and alive.is_alive()) else "dead"
+        if checks["scheduler"] == "dead":
+            checks["status"] = "degraded"
+    except Exception:
+        checks["scheduler"] = "unknown"
+
+    # R2 configured (optional)
+    try:
+        from src.services import storage
+        checks["r2"] = "configured" if storage.is_configured() else "not_configured"
+    except Exception:
+        checks["r2"] = "unknown"
+
+    return checks
 
 
 @app.post("/api/jobs")
-def create_job(req: ProcessRequest, background_tasks: BackgroundTasks):
+def create_job(req: ProcessRequest):
     job_id = str(uuid.uuid4())[:8]
     job_store.create(job_id, req.url)
-    background_tasks.add_task(_run_pipeline, job_id, req.url, req.dry_run, req.caption_style, req.face_track)
+    _pipeline_executor.submit(_run_pipeline, job_id, req.url, req.dry_run, req.caption_style, req.face_track)
     return {"job_id": job_id}
 
 
 @app.post("/api/queue")
-def create_queue(req: QueueRequest, background_tasks: BackgroundTasks):
+def create_queue(req: QueueRequest):
     urls = [u.strip() for u in req.urls if u.strip()]
     if not urls:
         raise HTTPException(status_code=422, detail="No URLs provided")
@@ -179,7 +207,7 @@ def create_queue(req: QueueRequest, background_tasks: BackgroundTasks):
     for url in urls:
         job_id = str(uuid.uuid4())[:8]
         job_store.create(job_id, url)
-        background_tasks.add_task(_run_pipeline, job_id, url, req.dry_run, req.caption_style, req.face_track)
+        _pipeline_executor.submit(_run_pipeline, job_id, url, req.dry_run, req.caption_style, req.face_track)
         job_ids.append(job_id)
     return {"job_ids": job_ids}
 
@@ -240,9 +268,17 @@ def list_clips():
     return {"clips": clips}
 
 
+def _safe_path(base: Path, *parts: str) -> Path:
+    """Resolve path and verify it stays within base — prevents path traversal."""
+    path = (base / Path(*parts)).resolve()
+    if not path.is_relative_to(base.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return path
+
+
 @app.get("/api/clips/{filename}")
 def serve_clip(filename: str):
-    path = OUTPUT_DIR / filename
+    path = _safe_path(OUTPUT_DIR, filename)
     if not path.exists() or not path.name.endswith((".mp4", ".jpg")):
         raise HTTPException(status_code=404, detail="Clip not found")
     media = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
@@ -372,7 +408,6 @@ def schedule_clip(filename: str, req: ScheduleRequest):
     path = OUTPUT_DIR / filename
     if not path.exists() or not path.name.endswith(".mp4"):
         raise HTTPException(status_code=404, detail="Clip not found")
-    from datetime import datetime, timezone
     try:
         # Accept both naive and aware ISO strings
         dt_str = req.publish_at.replace("Z", "+00:00")
@@ -432,24 +467,26 @@ class SlidesRequest(BaseModel):
     series_part: int | None = None
 
 
-SLIDES_OUTPUT = Path(os.getenv("OUTPUT_DIR", "output")) / "slides"
+SLIDES_OUTPUT = OUTPUT_DIR / "slides"
 
 
 @app.post("/api/slides")
-def create_slides(req: SlidesRequest, background_tasks: BackgroundTasks):
+def create_slides(req: SlidesRequest):
     from src.services import slides_generator
     valid_styles = {"terracota", "botanico", "aesthetic", "dark_jungle"}
     if req.style not in valid_styles:
         raise HTTPException(status_code=400, detail=f"style must be one of {valid_styles}")
 
     job_id = str(uuid.uuid4())[:8]
-    job_store.create(job_id, url=f"slides:{req.topic}", status="queued")
+    job_store.create(job_id, url=f"slides:{req.topic}")
 
     def _run():
         job_store.update(job_id, status="running")
         try:
-            meta = slides_generator.generate(req.topic, req.style, req.series_part)
-            # Upload slides to R2
+            meta = slides_generator.generate(
+                req.topic, req.style, req.series_part,
+                on_progress=lambda msg: job_store.append_log(job_id, msg),
+            )
             try:
                 from src.services import storage
                 slug = meta["slug"]
@@ -458,7 +495,7 @@ def create_slides(req: SlidesRequest, background_tasks: BackgroundTasks):
                     storage.upload_slide_image(slug, img_name, slides_dir / img_name)
                 if meta.get("video"):
                     storage.upload_slide_video(slug, SLIDES_OUTPUT / slug / "video.mp4")
-            except Exception as se:
+            except Exception:
                 pass  # R2 optional
             job_store.update(job_id, status="done", clips=[{
                 "slug": meta["slug"],
@@ -469,7 +506,7 @@ def create_slides(req: SlidesRequest, background_tasks: BackgroundTasks):
         except Exception as e:
             job_store.update(job_id, status="error", error=str(e))
 
-    background_tasks.add_task(_run)
+    _pipeline_executor.submit(_run)
     return {"job_id": job_id}
 
 
@@ -490,7 +527,7 @@ def get_slides(slug: str):
 
 @app.get("/api/slides/{slug}/images/{filename}")
 def serve_slide_image(slug: str, filename: str):
-    path = SLIDES_OUTPUT / slug / "images" / filename
+    path = _safe_path(SLIDES_OUTPUT, slug, "images", filename)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(str(path), media_type="image/png")
@@ -498,10 +535,43 @@ def serve_slide_image(slug: str, filename: str):
 
 @app.get("/api/slides/{slug}/video")
 def serve_slide_video(slug: str):
-    path = SLIDES_OUTPUT / slug / "video.mp4"
+    path = _safe_path(SLIDES_OUTPUT, slug, "video.mp4")
     if not path.exists():
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(str(path), media_type="video/mp4")
+
+
+@app.delete("/api/clips/{filename}")
+def delete_clip(filename: str):
+    """Delete a clip and its sidecar/thumbnail from local disk."""
+    path = _safe_path(OUTPUT_DIR, filename)
+    if not path.exists() or not path.name.endswith(".mp4"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    removed = [str(path)]
+    path.unlink()
+    for ext in [".json", ".jpg"]:
+        side = path.with_suffix(ext)
+        if side.exists():
+            side.unlink()
+            removed.append(str(side))
+    return {"deleted": removed}
+
+
+@app.post("/api/cleanup")
+def cleanup_old_clips(older_than_days: int = 7):
+    """Delete local clips older than N days to free container disk space."""
+    import time
+    cutoff = time.time() - older_than_days * 86400
+    deleted, freed = [], 0
+    for f in OUTPUT_DIR.glob("*.mp4"):
+        if f.stat().st_mtime < cutoff:
+            size = f.stat().st_size
+            f.unlink(missing_ok=True)
+            for ext in [".json", ".jpg"]:
+                f.with_suffix(ext).unlink(missing_ok=True)
+            deleted.append(f.name)
+            freed += size
+    return {"deleted": len(deleted), "freed_mb": round(freed / 1_048_576, 1), "files": deleted}
 
 
 if __name__ == "__main__":

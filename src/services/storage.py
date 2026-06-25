@@ -8,34 +8,43 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
-ACCESS_KEY  = os.getenv("R2_ACCESS_KEY_ID", "")
-SECRET_KEY  = os.getenv("R2_SECRET_ACCESS_KEY", "")
-BUCKET      = os.getenv("R2_BUCKET", "youai3-media")
-PUBLIC_URL  = os.getenv("R2_PUBLIC_URL", "").rstrip("/")
-
 _client = None
+
+
+def _creds() -> tuple[str, str, str, str, str]:
+    """Read R2 credentials lazily so Railway env vars set after import are picked up."""
+    return (
+        os.getenv("R2_ACCOUNT_ID", ""),
+        os.getenv("R2_ACCESS_KEY_ID", ""),
+        os.getenv("R2_SECRET_ACCESS_KEY", ""),
+        os.getenv("R2_BUCKET", "youai3-media"),
+        os.getenv("R2_PUBLIC_URL", "").rstrip("/"),
+    )
 
 
 def _get_client():
     global _client
     if _client:
         return _client
-    if not (ACCOUNT_ID and ACCESS_KEY and SECRET_KEY):
+    account_id, access_key, secret_key, _, _ = _creds()
+    if not (account_id and access_key and secret_key):
         return None
     import boto3
+    from botocore.config import Config
     _client = boto3.client(
         "s3",
-        endpoint_url=f"https://{ACCOUNT_ID}.r2.cloudflarestorage.com",
-        aws_access_key_id=ACCESS_KEY,
-        aws_secret_access_key=SECRET_KEY,
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
         region_name="auto",
+        config=Config(retries={"max_attempts": 3, "mode": "adaptive"}),
     )
     return _client
 
 
 def is_configured() -> bool:
-    return bool(ACCOUNT_ID and ACCESS_KEY and SECRET_KEY)
+    account_id, access_key, secret_key, _, _ = _creds()
+    return bool(account_id and access_key and secret_key)
 
 
 def upload(local_path: Path, key: str, content_type: str = "video/mp4") -> str | None:
@@ -46,14 +55,15 @@ def upload(local_path: Path, key: str, content_type: str = "video/mp4") -> str |
     client = _get_client()
     if not client:
         return None
+    _, _, _, bucket, public_url = _creds()
     try:
         client.upload_file(
             str(local_path),
-            BUCKET,
+            bucket,
             key,
             ExtraArgs={"ContentType": content_type},
         )
-        url = f"{PUBLIC_URL}/{key}" if PUBLIC_URL else _presigned(client, key)
+        url = f"{public_url}/{key}" if public_url else _presigned(client, key, bucket)
         log.info(f"R2 upload OK: {key} → {url}")
         return url
     except Exception as e:
@@ -61,29 +71,32 @@ def upload(local_path: Path, key: str, content_type: str = "video/mp4") -> str |
         return None
 
 
-def _presigned(client, key: str, expires: int = 3600 * 24 * 7) -> str:
+def _presigned(client, key: str, bucket: str, expires: int = 3600 * 24 * 7) -> str:
     return client.generate_presigned_url(
         "get_object",
-        Params={"Bucket": BUCKET, "Key": key},
+        Params={"Bucket": bucket, "Key": key},
         ExpiresIn=expires,
     )
 
 
 def public_url(key: str) -> str | None:
-    if PUBLIC_URL:
-        return f"{PUBLIC_URL}/{key}"
+    _, _, _, _, pub = _creds()
+    if pub:
+        return f"{pub}/{key}"
     client = _get_client()
     if not client:
         return None
-    return _presigned(client, key)
+    _, _, _, bucket, _ = _creds()
+    return _presigned(client, key, bucket)
 
 
 def delete(key: str) -> bool:
     client = _get_client()
     if not client:
         return False
+    _, _, _, bucket, _ = _creds()
     try:
-        client.delete_object(Bucket=BUCKET, Key=key)
+        client.delete_object(Bucket=bucket, Key=key)
         return True
     except Exception as e:
         log.error(f"R2 delete failed ({key}): {e}")

@@ -108,14 +108,13 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     else:
         raise RuntimeError(f"Todos los modelos Gemini fallaron: {last_err}")
 
-    # Strip markdown code fences if present
-    if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
+    # Strip markdown code fences robustly
+    import re as _re
+    raw = _re.sub(r'^```[a-z]*\s*', '', raw, flags=_re.MULTILINE)
+    raw = _re.sub(r'```\s*$', '', raw, flags=_re.MULTILINE)
     raw = raw.strip()
 
-    # Extract first complete JSON object (ignore trailing text)
+    # Extract first complete JSON object (brace-counting, ignores trailing text)
     depth, start = 0, -1
     for i, ch in enumerate(raw):
         if ch == "{":
@@ -128,17 +127,24 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
                 raw = raw[start:i + 1]
                 break
 
-    data = json.loads(raw)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"JSON inválido de Gemini: {e}\nRaw (primeros 300 chars): {raw[:300]}")
+
     _validate(data)
     log.info(f"  {len(data['slides'])} slides generados: {data['title']}")
     return data
 
 
 def _validate(data: dict) -> None:
-    assert "slides" in data, "Missing slides"
-    assert "hashtags" in data, "Missing hashtags"
-    assert len(data["slides"]) >= 8, f"Only {len(data['slides'])} slides"
+    if "slides" not in data:
+        raise ValueError("Missing slides")
+    if "hashtags" not in data:
+        raise ValueError("Missing hashtags")
+    if len(data["slides"]) < 8:
+        raise ValueError(f"Only {len(data['slides'])} slides")
     for s in data["slides"]:
-        assert "headline" in s, f"Slide {s.get('index')} missing headline"
-        assert "layout" in s, f"Slide {s.get('index')} missing layout"
-        assert "image_type" in s, f"Slide {s.get('index')} missing image_type"
+        for field in ("headline", "layout", "image_type"):
+            if field not in s:
+                raise ValueError(f"Slide {s.get('index')} missing {field}")
