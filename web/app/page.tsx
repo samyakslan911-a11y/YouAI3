@@ -1084,10 +1084,18 @@ function ClipsSection({ refreshKey }: { refreshKey: number }) {
 
 // ── Slides — Generator section ────────────────────────────────────────────────
 const SLIDE_STYLES = [
-  { id: "botanico",    label: "Botánico",    dot: "bg-yellow-500" },
-  { id: "terracota",   label: "Terracota",   dot: "bg-orange-400" },
-  { id: "aesthetic",   label: "Aesthetic",   dot: "bg-pink-300" },
-  { id: "dark_jungle", label: "Dark Jungle", dot: "bg-emerald-400" },
+  { id: "botanico",    label: "Botánico",    dot: "bg-yellow-400",
+    swatch: "from-[#050f07] via-[#0d1f0b] to-[#1a1800]",
+    ring: "ring-yellow-400/50",  glow: "shadow-yellow-900/40" },
+  { id: "terracota",   label: "Terracota",  dot: "bg-orange-400",
+    swatch: "from-[#1a0400] via-[#2e0a03] to-[#3d1200]",
+    ring: "ring-orange-400/50",  glow: "shadow-orange-900/40" },
+  { id: "aesthetic",   label: "Aesthetic",  dot: "bg-fuchsia-300",
+    swatch: "from-[#1a0a20] via-[#2d1245] to-[#1e0f38]",
+    ring: "ring-fuchsia-400/50", glow: "shadow-fuchsia-900/40" },
+  { id: "dark_jungle", label: "Dark Jungle",dot: "bg-emerald-400",
+    swatch: "from-[#010402] via-[#030f06] to-[#020a03]",
+    ring: "ring-emerald-400/50", glow: "shadow-emerald-900/40" },
 ];
 
 const STYLE_RING: Record<string, string> = {
@@ -1100,9 +1108,11 @@ const STYLE_RING: Record<string, string> = {
 const STYLE_DOT: Record<string, string> = {
   botanico:    "bg-yellow-400",
   terracota:   "bg-orange-400",
-  aesthetic:   "bg-pink-300",
+  aesthetic:   "bg-fuchsia-300",
   dark_jungle: "bg-emerald-400",
 };
+
+const GEN_STEPS = ["Contenido", "Fotos", "Slides", "Audio"];
 
 function SlidesGeneratorSection() {
   const [topic, setTopic] = useState("");
@@ -1200,262 +1210,310 @@ function SlidesGeneratorSection() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Form */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-        {/* Profiles */}
-        <div className="space-y-2.5">
-          {/* Pills row */}
-          <div className="flex gap-1.5 flex-wrap items-center">
-            <button onClick={() => selectProfile(null)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                !selectedProfile
-                  ? "bg-zinc-700 text-zinc-200 shadow-inner"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-              }`}>
-              General
-            </button>
+    <div className="space-y-5">
 
-            {profiles.map(p => {
-              const active = selectedProfile === p.id;
-              const ring = STYLE_RING[p.style] ?? "ring-zinc-500/40 bg-zinc-700/20 text-zinc-300";
-              const dot  = STYLE_DOT[p.style]  ?? "bg-zinc-400";
-              return (
-                <div key={p.id} className="group relative">
-                  <button onClick={() => selectProfile(p.id)}
-                    className={`pl-2.5 pr-7 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
-                      active
-                        ? `ring-1 ${ring}`
-                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-                    }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? dot : "bg-zinc-600"}`} />
-                    {p.name}
+      {/* ── Creator card ─────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-950">
+        {/* ambient top glow */}
+        <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[28rem] h-40 bg-emerald-500/6 blur-3xl" />
+
+        <div className="relative p-5 space-y-4">
+
+          {/* Profiles ─────────────────────────────────────────────────────── */}
+          <div className="space-y-2.5">
+            <div className="flex gap-1.5 flex-wrap items-center">
+              <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium mr-1">Modo</span>
+
+              <button onClick={() => selectProfile(null)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                  !selectedProfile
+                    ? "bg-zinc-700 text-zinc-200"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80"
+                }`}>
+                General
+              </button>
+
+              {profiles.map(p => {
+                const active = selectedProfile === p.id;
+                const ring   = STYLE_RING[p.style] ?? "ring-zinc-500/40 bg-zinc-700/20 text-zinc-300";
+                const dot    = STYLE_DOT[p.style]  ?? "bg-zinc-400";
+                return (
+                  <div key={p.id} className="group relative">
+                    <button onClick={() => selectProfile(p.id)}
+                      className={`pl-2.5 pr-7 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        active ? `ring-1 ${ring}` : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80"
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? dot : "bg-zinc-600"}`} />
+                      {p.name}
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await api.deleteProfile(p.id).catch(() => {});
+                        setProfiles(prev => prev.filter(x => x.id !== p.id));
+                        if (selectedProfile === p.id) setSelectedProfile(null);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {creatingProfile ? (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <input
+                    value={newProfileName}
+                    onChange={e => setNewProfileName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && createProfile()}
+                    placeholder="ej. Cocina saludable, Fitness..."
+                    autoFocus
+                    className="bg-zinc-800/80 border border-zinc-700/60 rounded-full px-3.5 py-1 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/60 w-48 transition"
+                  />
+                  <button onClick={createProfile} disabled={!newProfileName.trim() || generatingProfile}
+                    className="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium disabled:opacity-40 flex items-center gap-1.5 transition-all shrink-0">
+                    {generatingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    {generatingProfile ? "Creando..." : "Crear"}
                   </button>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await api.deleteProfile(p.id).catch(() => {});
-                      setProfiles(prev => prev.filter(x => x.id !== p.id));
-                      if (selectedProfile === p.id) setSelectedProfile(null);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400">
-                    <X className="w-2.5 h-2.5" />
+                  <button onClick={() => { setCreatingProfile(false); setNewProfileName(""); }}
+                    className="p-1 rounded-full text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition">
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
-              );
-            })}
-
-            {/* Create toggle */}
-            {creatingProfile ? (
-              <div className="flex items-center gap-1.5 ml-1">
-                <input
-                  value={newProfileName}
-                  onChange={e => setNewProfileName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && createProfile()}
-                  placeholder="ej. Cocina saludable, Finanzas..."
-                  autoFocus
-                  className="bg-zinc-800 border border-zinc-700 rounded-full px-3.5 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/60 w-52 transition"
-                />
-                <button
-                  onClick={createProfile}
-                  disabled={!newProfileName.trim() || generatingProfile}
-                  className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium disabled:opacity-40 flex items-center gap-1.5 transition-all shrink-0">
-                  {generatingProfile
-                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                    : <Sparkles className="w-3 h-3" />}
-                  {generatingProfile ? "Creando..." : "Crear"}
+              ) : (
+                <button onClick={() => setCreatingProfile(true)}
+                  className="ml-1 flex items-center gap-1.5 px-3 py-1 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/80 text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700">
+                  <Sparkles className="w-3 h-3" /> Nueva categoría
                 </button>
-                <button
-                  onClick={() => { setCreatingProfile(false); setNewProfileName(""); }}
-                  className="p-1.5 rounded-full text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setCreatingProfile(true)}
-                className="ml-1 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 text-xs font-medium transition-all">
-                <Sparkles className="w-3 h-3" />
-                Nueva categoría
-              </button>
-            )}
-          </div>
-
-          {/* Suggested topics — clickable to fill topic input */}
-          <AnimatePresence>
-            {selectedProfile && (() => {
-              const p = profiles.find(pr => pr.id === selectedProfile);
-              if (!p?.content_angles?.length) return null;
-              return (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex gap-1.5 flex-wrap items-center">
-                  <span className="text-zinc-600 text-xs shrink-0">Temas:</span>
-                  {p.content_angles.map((angle, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setTopic(angle)}
-                      className="px-2.5 py-1 rounded-full bg-zinc-800/80 hover:bg-emerald-950/60 text-zinc-400 hover:text-emerald-300 text-xs border border-zinc-700/50 hover:border-emerald-700/50 transition-all">
-                      {angle}
-                    </button>
-                  ))}
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex gap-3">
-          <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => e.key === "Enter" && generate()}
-            placeholder="Tema: ej. suculentas de interior, cactus para principiantes…"
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 transition" />
-          <button onClick={generate} disabled={status === "running" || !topic.trim()}
-            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:scale-105">
-            {status === "running" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {status === "running" ? "Generando…" : "Generar"}
-          </button>
-        </div>
-
-        {/* Style picker */}
-        <div className="flex gap-2 flex-wrap items-center">
-          {SLIDE_STYLES.map(s => (
-            <button key={s.id} onClick={() => setStyle(s.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${style === s.id ? "bg-emerald-900/40 border-emerald-600/40 text-emerald-300" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>
-              <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-              {s.label}
-            </button>
-          ))}
-          <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
-            <span>Serie parte</span>
-            <input type="number" min={1} max={10} placeholder="—"
-              onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-12 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-zinc-400 text-center" />
-          </div>
-        </div>
-
-        {status === "running" && (
-          <div className="flex items-center gap-3 text-sm text-zinc-500 pt-1">
-            <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
-            Gemini generando contenido → buscando fotos → componiendo slides → narración…
-          </div>
-        )}
-        {status === "error" && (
-          <p className="text-red-400 text-sm">Error generando slides. Revisa los logs.</p>
-        )}
-      </div>
-
-      {/* Viewer */}
-      {result && (
-        <div className="bg-zinc-900 border border-emerald-500/10 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-zinc-200 font-semibold">{result.title}</h3>
-              <p className="text-xs text-zinc-600 mt-0.5">{result.images.length} slides · {result.style}</p>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              {Object.entries(((result as Record<string, unknown>).image_sources ?? {}) as Record<string, number>).map(([src, n]) =>
-                n > 0 ? <span key={src} className="bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">{src} {n}</span> : null
               )}
             </div>
+
+            {/* Suggested topics */}
+            <AnimatePresence>
+              {selectedProfile && (() => {
+                const p = profiles.find(pr => pr.id === selectedProfile);
+                if (!p?.content_angles?.length) return null;
+                return (
+                  <motion.div key={p.id}
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                    className="flex gap-1.5 flex-wrap items-center pl-1">
+                    <span className="text-zinc-600 text-[11px] shrink-0">Temas:</span>
+                    {p.content_angles.map((angle, i) => (
+                      <button key={i} onClick={() => setTopic(angle)}
+                        className="px-2.5 py-0.5 rounded-full bg-zinc-800/80 hover:bg-emerald-950/70 text-zinc-400 hover:text-emerald-300 text-xs border border-zinc-700/50 hover:border-emerald-800/60 transition-all">
+                        {angle}
+                      </button>
+                    ))}
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
           </div>
 
-          {/* Carousel */}
-          <div className="relative flex items-center justify-center gap-4">
-            <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))}
-              className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full disabled:opacity-20 transition-colors" disabled={slideIdx === 0}>
-              <ChevronLeft className="w-4 h-4" />
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-zinc-700/40 to-transparent" />
+
+          {/* Input + Generate ──────────────────────────────────────────────── */}
+          <div className="relative">
+            <textarea
+              value={topic}
+              onChange={e => setTopic(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), generate())}
+              placeholder="¿Sobre qué quieres crear contenido? ej. suculentas de interior, finanzas para millennials…"
+              rows={2}
+              className="w-full resize-none bg-zinc-800/60 border border-zinc-700/60 rounded-xl px-4 py-3.5 pr-36 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/15 transition leading-relaxed"
+            />
+            <button onClick={generate} disabled={status === "running" || !topic.trim()}
+              className="absolute right-2.5 bottom-2.5 px-4 py-2 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-40 text-white text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/40 hover:shadow-emerald-900/60 active:scale-95">
+              {status === "running" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {status === "running" ? "Generando" : "Generar"}
             </button>
-            <div
-              className="w-72 aspect-[4/5] rounded-xl overflow-hidden bg-zinc-800 shadow-2xl cursor-zoom-in ring-1 ring-white/5 hover:ring-emerald-500/30 transition-all"
-              onClick={() => setLightboxOpen(true)}
-              title="Click para ver en pantalla completa"
-            >
-              <img src={api.slideImageUrl(result.slug, result.images[slideIdx])} alt={`Slide ${slideIdx + 1}`} className="w-full h-full object-cover" />
+          </div>
+
+          {/* Style swatches + serie ──────────────────────────────────────── */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium shrink-0">Estilo</span>
+            <div className="flex gap-2">
+              {SLIDE_STYLES.map(s => (
+                <button key={s.id} onClick={() => setStyle(s.id)}
+                  className={`relative h-9 w-20 rounded-xl overflow-hidden border transition-all duration-200 group ${
+                    style === s.id
+                      ? `border-white/20 ring-1 ${s.ring} scale-105 shadow-lg ${s.glow}`
+                      : "border-zinc-700/60 hover:border-zinc-500 hover:scale-102 opacity-60 hover:opacity-100"
+                  }`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${s.swatch}`} />
+                  <div className="absolute inset-0 flex items-end justify-start px-2 pb-1.5">
+                    <span className="text-white/90 text-[10px] font-semibold drop-shadow-md leading-none">{s.label}</span>
+                  </div>
+                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${s.dot} opacity-90`} />
+                </button>
+              ))}
             </div>
-            <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))}
-              className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full disabled:opacity-20 transition-colors" disabled={slideIdx === result.images.length - 1}>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="ml-auto flex items-center gap-2 text-xs text-zinc-600">
+              <span>Parte</span>
+              <input type="number" min={1} max={10} placeholder="—"
+                onChange={e => setSeriesPart(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-10 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-2 py-1.5 text-zinc-400 text-center focus:outline-none focus:border-zinc-600 transition" />
+            </div>
           </div>
 
-          {/* Dot indicators */}
-          <div className="flex justify-center gap-1">
-            {result.images.map((_, i) => (
-              <button key={i} onClick={() => setSlideIdx(i)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === slideIdx ? "bg-emerald-500 w-4" : "bg-zinc-700"}`} />
-            ))}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 flex-wrap">
-            <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
-              <Download className="w-3.5 h-3.5" /> Slide {slideIdx + 1}
-            </a>
-            <a href={api.slideZipUrl(result.slug)} download
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
-              <Download className="w-3.5 h-3.5" /> Todos los slides (ZIP)
-            </a>
-            {result.video && (
-              <a href={api.slideVideoUrl(result.slug)} download
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-500/20 text-emerald-400 text-xs transition-all">
-                <Download className="w-3.5 h-3.5" /> Video MP4 + narración
-              </a>
+          {/* Progress steps */}
+          <AnimatePresence>
+            {status === "running" && (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2 pt-1">
+                {GEN_STEPS.map((step, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <motion.span
+                        animate={{ opacity: [0.25, 1, 0.25], scale: [0.8, 1.1, 0.8] }}
+                        transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.32 }}
+                        className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"
+                      />
+                      <span className="text-zinc-500 text-xs">{step}</span>
+                    </div>
+                    {i < GEN_STEPS.length - 1 && <span className="text-zinc-700 text-xs">›</span>}
+                  </div>
+                ))}
+              </motion.div>
             )}
-            {(["instagram", "tiktok", "pinterest"] as const).map(p => (
-              <button key={p} onClick={() => copyHashtags(p)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
-                <Copy className="w-3.5 h-3.5" />
-                {copied === p ? "¡Copiado!" : `# ${p}`}
-              </button>
-            ))}
-            {result.video && (
-              <div className="flex gap-2">
-                {(["instagram", "tiktok"] as const).map(p => (
-                  <button key={p} onClick={() => publishSlides(p)}
-                    disabled={publishState[p] === "loading"}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
+            {status === "error" && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="text-red-400 text-sm flex items-center gap-2">
+                <XCircle className="w-4 h-4 shrink-0" /> Error generando slides. Revisa los logs.
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* ── Result viewer ─────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {result && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+            className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900 to-zinc-950 overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-zinc-800/60">
+              <div>
+                <h3 className="text-zinc-100 font-semibold text-base leading-tight">{result.title}</h3>
+                <p className="text-zinc-500 text-xs mt-1">{result.images.length} slides · {result.style}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {Object.entries(((result as Record<string, unknown>).image_sources ?? {}) as Record<string, number>).map(([src, n]) =>
+                  n > 0 ? (
+                    <span key={src} className="bg-zinc-800 text-zinc-500 text-[11px] px-2 py-0.5 rounded-full border border-zinc-700/50">
+                      {src} {n}
+                    </span>
+                  ) : null
+                )}
+              </div>
+            </div>
+
+            {/* Carousel */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex items-center justify-center gap-5">
+                <button onClick={() => setSlideIdx(i => Math.max(0, i - 1))} disabled={slideIdx === 0}
+                  className="p-2.5 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 transition-all border border-zinc-700/40">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="relative cursor-zoom-in group" onClick={() => setLightboxOpen(true)}>
+                  <div className="w-72 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/5 group-hover:ring-emerald-500/25 transition-all duration-300 group-hover:shadow-emerald-900/30">
+                    <img
+                      src={api.slideImageUrl(result.slug, result.images[slideIdx])}
+                      alt={`Slide ${slideIdx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs font-medium flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5" /> Pantalla completa
+                    </div>
+                  </div>
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-white/70 text-xs font-mono">
+                    {slideIdx + 1} / {result.images.length}
+                  </div>
+                </div>
+
+                <button onClick={() => setSlideIdx(i => Math.min(result.images.length - 1, i + 1))} disabled={slideIdx === result.images.length - 1}
+                  className="p-2.5 rounded-full bg-zinc-800/80 hover:bg-zinc-700 disabled:opacity-20 transition-all border border-zinc-700/40">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Dot strip */}
+              <div className="flex justify-center gap-1">
+                {result.images.map((_, i) => (
+                  <button key={i} onClick={() => setSlideIdx(i)}
+                    className={`rounded-full transition-all duration-200 ${
+                      i === slideIdx ? "w-5 h-1.5 bg-emerald-400" : "w-1.5 h-1.5 bg-zinc-700 hover:bg-zinc-500"
+                    }`} />
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 flex-wrap pt-1">
+                <a href={api.slideImageUrl(result.slug, result.images[slideIdx])} download
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
+                  <Download className="w-3.5 h-3.5" /> Slide {slideIdx + 1}
+                </a>
+                <a href={api.slideZipUrl(result.slug)} download
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
+                  <Download className="w-3.5 h-3.5" /> ZIP completo
+                </a>
+                {result.video && (
+                  <a href={api.slideVideoUrl(result.slug)} download
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-all">
+                    <Download className="w-3.5 h-3.5" /> Video + audio
+                  </a>
+                )}
+                {(["instagram", "tiktok", "pinterest"] as const).map(p => (
+                  <button key={p} onClick={() => copyHashtags(p)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40">
+                    <Copy className="w-3.5 h-3.5" />
+                    {copied === p ? "¡Copiado!" : `# ${p}`}
+                  </button>
+                ))}
+                {result.video && (["instagram", "tiktok"] as const).map(p => (
+                  <button key={p} onClick={() => publishSlides(p)} disabled={publishState[p] === "loading"}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all border border-zinc-700/40 disabled:opacity-40">
                     {publishState[p] === "loading" ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                     : publishState[p] === "done" ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                     : publishState[p] === "done"    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                      : <Upload className="w-3.5 h-3.5" />}
                     {p === "instagram" ? "IG Reel" : "TikTok"}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
 
-          {/* Hook variants */}
-          {result.hook_variants?.length > 0 && (
-            <div className="space-y-1 border-t border-white/[0.05] pt-4">
-              <p className="text-xs text-zinc-500 font-medium mb-2">Variantes del hook para caption:</p>
-              {result.hook_variants.map((h, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs text-zinc-500 bg-zinc-800/50 rounded-lg px-3 py-2">
-                  <span className="text-zinc-700 font-mono shrink-0">{String.fromCharCode(65 + i)}.</span>
-                  <span>{h}</span>
-                  <button onClick={() => { navigator.clipboard.writeText(h); }}
-                    className="ml-auto text-zinc-700 hover:text-zinc-400 transition-colors shrink-0">
-                    <Copy size={10} />
-                  </button>
+              {/* Hook variants */}
+              {result.hook_variants?.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-zinc-800/60">
+                  <p className="text-zinc-600 text-[11px] uppercase tracking-widest font-medium mb-2">Variantes del hook</p>
+                  {result.hook_variants.map((h, i) => (
+                    <div key={i} className="flex items-start gap-2 bg-zinc-800/40 hover:bg-zinc-800/70 rounded-xl px-3.5 py-2.5 transition-colors group/hook border border-zinc-700/30">
+                      <span className="text-zinc-600 font-mono text-xs shrink-0 mt-0.5">{String.fromCharCode(65 + i)}</span>
+                      <span className="text-zinc-300 text-xs leading-relaxed">{h}</span>
+                      <button onClick={() => navigator.clipboard.writeText(h)}
+                        className="ml-auto text-zinc-700 hover:text-zinc-300 transition-colors shrink-0 opacity-0 group-hover/hook:opacity-100">
+                        <Copy size={11} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Fullscreen lightbox */}
       <AnimatePresence>
         {lightboxOpen && result && (
           <SlideModal
-            images={result.images}
-            slug={result.slug}
-            current={slideIdx}
-            total={result.images.length}
+            images={result.images} slug={result.slug}
+            current={slideIdx} total={result.images.length}
             onClose={() => setLightboxOpen(false)}
             onGoto={(i) => setSlideIdx(i)}
           />
