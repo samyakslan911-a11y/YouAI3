@@ -1,6 +1,8 @@
+import io
 import json
 import os
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,7 +10,7 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from src.services import job_store, scheduler
@@ -381,14 +383,11 @@ def publish_clip(filename: str, req: PublishRequest):
         publish_youtube, publish_tiktok,
         publish_instagram, publish_instagram_playwright,
     )
-    import src.services.publisher as _pub
-    _pub._current_topic = topic
-    _pub._current_style = style
 
     if req.platform == "youtube":
         result = publish_youtube(path, title, description, tags)
     elif req.platform == "tiktok":
-        result = publish_tiktok(path, title, tags)
+        result = publish_tiktok(path, title, tags, topic, style)
     elif req.platform == "instagram":
         # Use Playwright (+ AI music) when topic metadata is available
         if topic:
@@ -555,6 +554,73 @@ def serve_slide_video(slug: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(str(path), media_type="video/mp4")
+
+
+@app.get("/api/slides/{slug}/zip")
+def download_slides_zip(slug: str):
+    slide_dir = _safe_path(SLIDES_OUTPUT, slug)
+    if not slide_dir.exists():
+        raise HTTPException(status_code=404, detail="Slide set not found")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        images_dir = slide_dir / "images"
+        if images_dir.exists():
+            for img in sorted(images_dir.glob("*.png")):
+                zf.write(img, arcname=f"images/{img.name}")
+        video = slide_dir / "video.mp4"
+        if video.exists():
+            zf.write(video, arcname="video.mp4")
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.zip"'},
+    )
+
+
+class SlidesPublishRequest(BaseModel):
+    platform: str
+
+
+@app.post("/api/slides/{slug}/publish")
+def publish_slides(slug: str, req: SlidesPublishRequest):
+    slide_dir = _safe_path(SLIDES_OUTPUT, slug)
+    if not slide_dir.exists():
+        raise HTTPException(status_code=404, detail="Slide set not found")
+
+    meta_path = slide_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Slide set metadata not found")
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+
+    if not meta.get("video"):
+        raise HTTPException(status_code=400, detail="Este set no tiene video")
+
+    video_path = slide_dir / meta["video"]
+    topic = meta.get("topic", "")
+    style = meta.get("style", "botanico")
+    caption = (meta.get("title") or topic)
+
+    import src.services.publisher as _pub
+    _pub._current_topic = topic
+    _pub._current_style = style
+
+    from src.services.publisher import publish_instagram_playwright, publish_tiktok
+
+    if req.platform == "instagram":
+        result = publish_instagram_playwright(video_path, caption, topic, style)
+    elif req.platform == "tiktok":
+        result = publish_tiktok(video_path, topic, [])
+    else:
+        raise HTTPException(status_code=422, detail=f"Plataforma desconocida: {req.platform}")
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return {"platform": result.platform, "url": result.url, "success": True}
 
 
 @app.delete("/api/clips/{filename}")

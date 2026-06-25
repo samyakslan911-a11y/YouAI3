@@ -66,7 +66,8 @@ def suggest_audio_queries(
         log.warning(f"Gemini music selector failed: {e} — using rule-based fallback")
 
     # Rule-based fallback: combine mood hints + platform boost
-    fallback = [f"{h} {boost}" for h in mood_hints[:3]] + [f"{topic.split()[0].lower()} aesthetic"]
+    first_word = topic.split()[0].lower() if topic.strip() else "nature"
+    fallback = [f"{h} {boost}" for h in mood_hints[:3]] + [f"{first_word} aesthetic"]
     return fallback[:4]
 
 

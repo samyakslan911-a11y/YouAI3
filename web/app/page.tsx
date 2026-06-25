@@ -1020,6 +1020,7 @@ function SlidesGeneratorSection() {
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
   const [slideIdx, setSlideIdx] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
+  const [publishState, setPublishState] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
 
   useEffect(() => {
     if (!jobId || status !== "running") return;
@@ -1054,6 +1055,21 @@ function SlidesGeneratorSection() {
     navigator.clipboard.writeText(tags);
     setCopied(platform);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function publishSlides(platform: "instagram" | "tiktok") {
+    if (!result) return;
+    setPublishState(s => ({ ...s, [platform]: "loading" }));
+    try {
+      await fetch(`/api/slides/${result.slug}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform }),
+      });
+      setPublishState(s => ({ ...s, [platform]: "done" }));
+    } catch {
+      setPublishState(s => ({ ...s, [platform]: "error" }));
+    }
   }
 
   return (
@@ -1143,9 +1159,9 @@ function SlidesGeneratorSection() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
               <Download className="w-3.5 h-3.5" /> Slide {slideIdx + 1}
             </a>
-            <a href={`/api/slides/${result.slug}/images`} download
+            <a href={api.slideZipUrl(result.slug)} download
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
-              <Download className="w-3.5 h-3.5" /> Todos los slides
+              <Download className="w-3.5 h-3.5" /> Todos los slides (ZIP)
             </a>
             {result.video && (
               <a href={api.slideVideoUrl(result.slug)} download
@@ -1160,6 +1176,20 @@ function SlidesGeneratorSection() {
                 {copied === p ? "¡Copiado!" : `# ${p}`}
               </button>
             ))}
+            {result.video && (
+              <div className="flex gap-2">
+                {(["instagram", "tiktok"] as const).map(p => (
+                  <button key={p} onClick={() => publishSlides(p)}
+                    disabled={publishState[p] === "loading"}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">
+                    {publishState[p] === "loading" ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                     : publishState[p] === "done" ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                     : <Upload className="w-3.5 h-3.5" />}
+                    {p === "instagram" ? "IG Reel" : "TikTok"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Hook variants */}

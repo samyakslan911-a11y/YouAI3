@@ -11,10 +11,6 @@ from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# Content metadata passed to music selector — set by callers when known
-_current_topic: str = ""
-_current_style: str = "botanico"
-
 
 @dataclass
 class PublisherResult:
@@ -26,7 +22,10 @@ class PublisherResult:
 
 # ─── TikTok (Playwright browser automation) ──────────────────────────────────
 
-def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherResult:
+def publish_tiktok(
+    clip_path: Path, title: str, tags: list[str],
+    topic: str = "", style: str = "botanico",
+) -> PublisherResult:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -61,9 +60,8 @@ def publish_tiktok(clip_path: Path, title: str, tags: list[str]) -> PublisherRes
             page.wait_for_selector(".caption-input", timeout=30000)
 
             # ── AI trending music selection ──────────────────────────────
-            topic = _current_topic or title
-            style = _current_style
-            queries = suggest_audio_queries(topic, style, platform="tiktok")
+            effective_topic = topic or title
+            queries = suggest_audio_queries(effective_topic, style, platform="tiktok")
             selected = select_sound_tiktok(page, queries)
             if selected:
                 log.info(f"TikTok: música trending seleccionada → '{selected}'")
@@ -314,9 +312,8 @@ def publish_all(
     topic + style are used by the AI music selector to choose trending audio.
     When provided, Instagram uses Playwright (with music); otherwise instagrapi.
     """
-    global _current_topic, _current_style
-    _current_topic = topic or segment.get("topic", "")
-    _current_style = style or segment.get("style", "botanico")
+    effective_topic = topic or segment.get("topic", "")
+    effective_style = style or segment.get("style", "botanico")
 
     title = segment.get("title", clip_path.stem)
     hook  = segment.get("hook", title)
@@ -325,12 +322,12 @@ def publish_all(
     results = []
     for platform in platforms:
         if platform == "tiktok":
-            results.append(publish_tiktok(clip_path, title, tags))
+            results.append(publish_tiktok(clip_path, title, tags, effective_topic, effective_style))
         elif platform == "instagram":
             # Use Playwright (+ music) when topic is known; fallback to instagrapi
-            if _current_topic:
+            if effective_topic:
                 results.append(
-                    publish_instagram_playwright(clip_path, hook, _current_topic, _current_style)
+                    publish_instagram_playwright(clip_path, hook, effective_topic, effective_style)
                 )
             else:
                 results.append(publish_instagram(clip_path, hook))

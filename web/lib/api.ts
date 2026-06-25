@@ -132,4 +132,5 @@ export const api = {
 
   slideImageUrl: (slug: string, filename: string) => `${BASE}/api/slides/${slug}/images/${filename}`,
   slideVideoUrl: (slug: string) => `${BASE}/api/slides/${slug}/video`,
+  slideZipUrl: (slug: string) => `${BASE}/api/slides/${slug}/zip`,
 };
