@@ -277,6 +277,37 @@ def _render_milo_from_spec(
                    btn_y + (btn_h - (bb[3] - bb[1])) // 2),
                   cta, font=fb, fill=(255, 255, 255, 255))
 
+    # ── Plant photo circle (cover template only) ─────────────────────────────
+    if spec_key == "cover" and bg_raw is not None:
+        # Circle positioned below the headline text
+        mw_c      = 740
+        circle_y0 = max(y_cursor + 24, 480)
+        avail_h   = H - circle_y0 - 120
+        photo_sz  = min(mw_c - 20, avail_h, 560)
+        photo_x   = cx - photo_sz // 2
+        photo_y   = circle_y0
+
+        sage = s["accent"]
+        circle_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(circle_layer).ellipse(
+            [photo_x, photo_y, photo_x + photo_sz, photo_y + photo_sz],
+            fill=(*sage[:3], 230),
+        )
+        img = Image.alpha_composite(img.convert("RGBA"), circle_layer)
+
+        pw, ph = bg_raw.size
+        sq   = min(pw, ph)
+        lft  = (pw - sq) // 2
+        tp   = max(0, int(ph * 0.05))
+        crop = bg_raw.crop((lft, tp, lft + sq, tp + sq))
+        crop = crop.resize((photo_sz, photo_sz), Image.LANCZOS)
+        crop = ImageEnhance.Color(crop).enhance(1.18)
+        crop = ImageEnhance.Contrast(crop).enhance(1.08)
+        mask = Image.new("L", (photo_sz, photo_sz), 0)
+        ImageDraw.Draw(mask).ellipse([0, 0, photo_sz, photo_sz], fill=255)
+        img.paste(crop.convert("RGBA"), (photo_x, photo_y), mask)
+        draw = ImageDraw.Draw(img)
+
     # ── Handle always at bottom ───────────────────────────────────────────────
     _milo_handle(draw, s)
 

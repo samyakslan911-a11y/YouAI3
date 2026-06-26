@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import slides_content, slides_imager, slides_composer, slides_video
+from . import slides_content, slides_imager, slides_composer, slides_video, slides_research
 from src.utils.config import OUTPUT_DIR as _BASE_OUTPUT_DIR
 
 log = logging.getLogger(__name__)
@@ -120,13 +120,23 @@ def generate(
         if on_progress:
             on_progress(msg)
 
-    # ── 1. Generate content via Gemini ────────────────────────────────────────
+    # ── 1. Research + Generate content via Gemini ─────────────────────────────
+    _log("Investigando el tema con Google Search...")
+    research = slides_research.research_topic(topic)
+    if research:
+        _log(f"Investigacion lista ({len(research)} chars de contexto experto)")
+    else:
+        _log("Sin investigacion previa (continuando con conocimiento base)")
+
     _log("Generando contenido con Gemini...")
     top = _top_designs()
     expert_context = profile.expert_context if profile else None
     if profile and profile.brand_voice:
         brand_voice_note = f"\n\nVOZ DE MARCA:\n{profile.brand_voice}"
         expert_context = (expert_context or "") + brand_voice_note
+    if research:
+        research_block = f"\n\nINVESTIGACION VERIFICADA (usa estos datos exactos):\n{research}"
+        expert_context = (expert_context or "") + research_block
     content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context, slide_count=slide_count)
     _log(f"Contenido listo: {len(content['slides'])} slides")
 
