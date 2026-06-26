@@ -235,11 +235,18 @@ def _render_milo_from_spec(
         img  = _paste_plant_photo(img, bg_raw, cx, y0, photo_sz, sage)
         draw = ImageDraw.Draw(img)
 
-    if cfg.get("has_numbered") and body:
-        bullets = [l.strip().lstrip(".-*").strip() for l in body.split("\n") if l.strip()]
+    if cfg.get("has_numbered"):
+        raw_body = body
+        if raw_body:
+            lines = [l.strip().lstrip("•.-*").strip() for l in raw_body.split("\n") if l.strip()]
+            if len(lines) < 2 and "," in raw_body:
+                lines = [p.strip().lstrip("•.-*").strip() for p in raw_body.split(",") if p.strip()]
+            bullets = [l for l in lines if l][:4]
+        else:
+            bullets = []
         if bullets:
             cy1 = y + 28
-            cy2 = min(cy1 + 72 * len(bullets[:4]) + 52, H - 90)
+            cy2 = min(cy1 + 72 * len(bullets) + 52, H - 90)
             img  = _milo_numbered_card(img, bullets, s, cy1, cy2)
             draw = ImageDraw.Draw(img)
 
@@ -878,14 +885,14 @@ def _milo_numbered_card(
     result_rgba = Image.alpha_composite(result_rgba, card)
     draw2 = ImageDraw.Draw(result_rgba)
 
-    fnum   = _font("display", 34)
-    fbod   = _font("reg", 34)
-    line_h = 66
-    row_y  = cy1 + 30
+    fnum   = _font("display", 40)
+    fbod   = _font("reg", 38)
+    line_h = 76
+    row_y  = cy1 + 28
     dg     = s["primary"][:3]
 
     for i, bullet in enumerate(bullets[:4]):
-        text = bullet.lstrip("-.▪▶- ").strip()
+        text = bullet.lstrip("-.▪▶• ").strip()
         num  = f"{i + 1:02d}"
         draw2.text((pad_x + 28, row_y), num, font=fnum, fill=(*s["accent"][:3], 240))
         draw2.text((pad_x + 90, row_y + 4), text, font=fbod, fill=(*dg, 220))
@@ -1231,10 +1238,10 @@ def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> I
     data_x  = photo_x + photo_size + 28
     data_mw = (W - card_pad - 24) - data_x
     rows    = [l.strip().lstrip("-.-").strip() for l in slide.get("body", "").split("\n") if l.strip()]
-    fkey    = _font("reg", 24)
-    fval    = _font("lightb", 34)
+    fkey    = _font("reg", 28)
+    fval    = _font("lightb", 40)
     n_rows  = min(len(rows), 4)
-    row_h   = 24 + 6 + 34 + 14  # key + gap + val + bottom
+    row_h   = 28 + 6 + 40 + 14  # key + gap + val + bottom
     total_h = row_h * n_rows
     row_y   = card_y1 + (card_h - total_h) // 2
 
@@ -1253,9 +1260,8 @@ def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> I
         fv_wrap = fval
         bv = draw.textbbox((0, 0), val, font=fv_wrap)
         if bv[2] - bv[0] > data_mw:
-            # Fallback: smaller font
-            fv_wrap = _font("lightb", 28)
-        draw.text((data_x, row_y + 30), val, font=fv_wrap, fill=(*dg[:3], 235))
+            fv_wrap = _font("lightb", 34)
+        draw.text((data_x, row_y + 32), val, font=fv_wrap, fill=(*dg[:3], 235))
         row_y += row_h
 
     # ── Handle white centered ─────────────────────────────────────────────────
@@ -1292,7 +1298,14 @@ def _compose_milokira(
     if idx == total - 1:
         return _render_milo_from_spec(slide, bg_raw, "cta", s)
 
-    kv_count = sum(1 for line in body.split("\n") if ":" in line and line.strip())
+    # Route to species card ONLY when body has short KEY: value pairs (data table)
+    # Do NOT catch bullets like "• Luz: indirecta brillante" — key must be ≤12 chars
+    def _is_kv(line: str) -> bool:
+        if ":" not in line:
+            return False
+        key = line.split(":", 1)[0].lstrip("•- ").strip()
+        return len(key) <= 12 and key == key.upper()
+    kv_count = sum(1 for line in body.split("\n") if _is_kv(line))
     if kv_count >= 2:
         return _milo_t3_species_card(slide, bg_raw, s)
 
