@@ -120,24 +120,29 @@ def generate(
         if on_progress:
             on_progress(msg)
 
-    # ── 1. Research + Generate content via Gemini ─────────────────────────────
-    _log("Investigando el tema con Google Search...")
-    research = slides_research.research_topic(topic)
-    if research:
-        _log(f"Investigacion lista ({len(research)} chars de contexto experto)")
-    else:
-        _log("Sin investigacion previa (continuando con conocimiento base)")
-
-    _log("Generando contenido con Gemini...")
+    # ── 1. Research (con timeout) + Generate content ──────────────────────────
     top = _top_designs()
     expert_context = profile.expert_context if profile else None
     if profile and profile.brand_voice:
-        brand_voice_note = f"\n\nVOZ DE MARCA:\n{profile.brand_voice}"
-        expert_context = (expert_context or "") + brand_voice_note
+        expert_context = (expert_context or "") + f"\n\nVOZ DE MARCA:\n{profile.brand_voice}"
+
+    # Research corre con timeout de 12s. Si hay cache devuelve en <1s.
+    # Si no hay cache y tarda más de 12s, se omite y el pipeline no se bloquea.
+    _log("Buscando informacion botanica...")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        fut = pool.submit(slides_research.research_topic, topic)
+        try:
+            research = fut.result(timeout=12)
+        except Exception:
+            research = ""
+            _log("Research timeout — generando con conocimiento base")
+
     if research:
-        research_block = f"\n\nINVESTIGACION VERIFICADA (usa estos datos exactos):\n{research}"
-        expert_context = (expert_context or "") + research_block
-    content = slides_content.generate_content(topic, style, series_part, expert_context=expert_context, slide_count=slide_count)
+        _log(f"Datos verificados listos ({len(research)} chars)")
+        expert_context = (expert_context or "") + f"\n\nINVESTIGACION VERIFICADA:\n{research}"
+
+    _log("Generando contenido con Gemini...")
+    content = slides_content.generate_content(topic, style, series_part, expert_context, slide_count)
     _log(f"Contenido listo: {len(content['slides'])} slides")
 
     # ── 2. Fetch images in parallel, compose slides ───────────────────────────
