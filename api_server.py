@@ -890,17 +890,21 @@ def canva_callback(code: str, state: str):
     }
 
 
-@app.get("/api/canva/templates")
-def canva_list_templates():
-    """List available Canva Brand Templates (use to get template IDs)."""
+@app.get("/api/canva/test")
+def canva_test():
+    """Verify Canva token and list recent designs (to find Brand Template IDs)."""
     try:
-        from src.services.canva_service import canva, CANVA_CLIENT_ID
-        if not CANVA_CLIENT_ID:
-            raise HTTPException(502, "CANVA_CLIENT_ID not set")
-        templates = canva.list_brand_templates()
-        return {"templates": [{"id": t["id"], "title": t.get("title", "")} for t in templates]}
-    except HTTPException:
-        raise
+        from src.services.canva_service import canva, _API
+        import httpx as _httpx
+        # List user's designs — template IDs appear in the URL when you open a Brand Template in Canva
+        r = _httpx.get(f"{_API}/designs?ownership=owned&limit=50", headers=canva._h(), timeout=15)
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        return {
+            "status": "connected",
+            "designs": [{"id": d["id"], "title": d.get("title", ""), "type": d.get("doc_type", "")} for d in items],
+            "hint": "Para Brand Templates: abrí cada template en Canva y copiá el ID de la URL: canva.com/brand/templates/{ID}/edit",
+        }
     except Exception as e:
         raise HTTPException(500, f"Canva error: {e}")
 

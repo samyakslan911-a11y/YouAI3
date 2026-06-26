@@ -131,10 +131,11 @@ class CanvaClient:
 
     # ── Brand templates ───────────────────────────────────────────────────────
 
-    def list_brand_templates(self) -> list[dict]:
-        r = httpx.get(f"{_API}/brandtemplates", headers=self._h(), timeout=15)
+    def get_brand_template(self, template_id: str) -> dict:
+        """Get a specific brand template by ID."""
+        r = httpx.get(f"{_API}/brandtemplates/{template_id}", headers=self._h(), timeout=15)
         r.raise_for_status()
-        return r.json().get("items", [])
+        return r.json()
 
     # ── Assets ────────────────────────────────────────────────────────────────
 
