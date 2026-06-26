@@ -103,8 +103,8 @@ def _spec_clear(img: Image.Image, spec: dict) -> Image.Image:
 
 # Layout constants per template - fixed values, not spec estimates
 _MILO_LAYOUT = {
-    "cover": {"panel_w": 130, "inner_m": 28, "y_sparkle": 88, "sparkle_sz": 22, "y_hl": 122, "hl_size": 124, "hl_min": 54, "hl_gap": 10, "style": "bicolor_per_word", "has_photo": True, "photo_margin_top": 28, "photo_max": 560},
-    "guide": {"panel_w": 130, "inner_m": 28, "y_sparkle": 70, "sparkle_sz": 20, "y_label": 96, "hl_size": 104, "hl_min": 50, "hl_gap": 12, "style": "bicolor_per_word", "has_numbered": True},
+    "cover": {"panel_w": 130, "inner_m": 28, "y_sparkle": 92, "sparkle_sz": 22, "y_hl": 132, "hl_size": 124, "hl_min": 54, "hl_gap": 14, "style": "bicolor_per_word", "has_photo": True, "photo_margin_top": 36, "photo_max": 580},
+    "guide": {"panel_w": 130, "inner_m": 28, "y_sparkle": 72, "sparkle_sz": 20, "y_label": 100, "hl_size": 108, "hl_min": 50, "hl_gap": 14, "style": "bicolor_per_word", "has_numbered": True},
     "cta":   {"panel_w": 110, "inner_m": 32, "y_sparkle": 84, "sparkle_sz": 20, "y_label": 108, "hl_size": 112, "hl_min": 52, "hl_gap": 8, "style": "bicolor_last_word", "has_button": True, "btn_gap": 52},
     "cita":  {"panel_w": 0, "inner_m": 60, "y_quote": 490, "hl_size": 72, "hl_min": 44, "hl_gap": 20, "style": "quote"},
 }
@@ -130,16 +130,40 @@ def _paste_plant_photo(img, bg_raw, cx, y0, max_sz, sage):
     return img
 
 
+# Short connector words that should never stand alone on a line
+_CONNECTORS = {"Y", "A", "E", "O", "DE", "EL", "LA", "LOS", "LAS", "EN",
+               "AL", "CON", "SIN", "POR", "QUE", "UN", "UNA", "DEL", "ES"}
+
+
+def _group_headline(words: list) -> list:
+    """Merge lone connector words with the next word so no line looks empty."""
+    out = []
+    i = 0
+    while i < len(words):
+        w = words[i]
+        if w in _CONNECTORS and i + 1 < len(words):
+            out.append(w + " " + words[i + 1])
+            i += 2
+        else:
+            out.append(w)
+            i += 1
+    return out[:4]
+
+
 def _draw_bicolor_words(draw, words, colors, cx, y, mw, fs, fs_min, gap):
-    for i, word in enumerate(words):
+    groups = _group_headline([w.upper() for w in words])
+    for i, group in enumerate(groups):
         cur_fs = fs
         fh = _font("display", cur_fs)
-        bb = draw.textbbox((0, 0), word, font=fh)
-        while bb[2] - bb[0] > mw and cur_fs > fs_min:
+        bb = draw.textbbox((0, 0), group, font=fh)
+        gw = bb[2] - bb[0]
+        while gw > int(mw * 0.93) and cur_fs > fs_min:
             cur_fs -= 4
             fh = _font("display", cur_fs)
-            bb = draw.textbbox((0, 0), word, font=fh)
-        draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*colors[i % len(colors)][:3], 255))
+            bb = draw.textbbox((0, 0), group, font=fh)
+            gw = bb[2] - bb[0]
+        col = colors[i % len(colors)]
+        draw.text((cx - gw // 2, y), group, font=fh, fill=(*col[:3], 255))
         y += (bb[3] - bb[1]) + gap
     return y
 
@@ -208,25 +232,26 @@ def _render_milo_from_spec(
     if "y_hl" in cfg:
         y = max(y, cfg["y_hl"])
 
-    words = headline.upper().split()
+    raw_words = [w.strip(":.!?,") for w in headline.upper().split() if w.strip(":.!?,")]
     fs    = cfg["hl_size"]
     fs_m  = cfg["hl_min"]
     gap   = cfg["hl_gap"]
 
     if style == "bicolor_per_word":
-        y = _draw_bicolor_words(draw, words[:5], [dg, lav], cx, y, mw, fs, fs_m, gap)
+        y = _draw_bicolor_words(draw, raw_words[:5], [dg, lav], cx, y, mw, fs, fs_m, gap)
     elif style == "bicolor_last_word":
-        n = len(words)
-        for i, word in enumerate(words[:5]):
+        groups = _group_headline(raw_words)[:5]
+        n = len(groups)
+        for i, group in enumerate(groups):
             cur_fs = fs
             fh = _font("display", cur_fs)
-            bb = draw.textbbox((0, 0), word, font=fh)
-            while bb[2] - bb[0] > mw and cur_fs > fs_m:
+            bb = draw.textbbox((0, 0), group, font=fh)
+            while bb[2] - bb[0] > int(mw * 0.93) and cur_fs > fs_m:
                 cur_fs -= 4
                 fh = _font("display", cur_fs)
-                bb = draw.textbbox((0, 0), word, font=fh)
+                bb = draw.textbbox((0, 0), group, font=fh)
             col = lav if i == n - 1 else dg
-            draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*col[:3], 255))
+            draw.text((cx - (bb[2] - bb[0]) // 2, y), group, font=fh, fill=(*col[:3], 255))
             y += (bb[3] - bb[1]) + gap
 
     if cfg.get("has_photo") and bg_raw is not None:
@@ -245,8 +270,8 @@ def _render_milo_from_spec(
         else:
             bullets = []
         if bullets:
-            cy1 = y + 28
-            cy2 = min(cy1 + 72 * len(bullets) + 52, H - 90)
+            cy1 = y + 32
+            cy2 = min(cy1 + 82 * len(bullets) + 52, H - 90)
             img  = _milo_numbered_card(img, bullets, s, cy1, cy2)
             draw = ImageDraw.Draw(img)
 
@@ -1179,24 +1204,24 @@ def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> I
     draw.text((cx - (bb[2] - bb[0]) // 2, 120), label_txt, font=fl,
               fill=(*white, 210))
 
-    # ── Bicolor headline: each WORD on its own line, cream / lavender alt ─────
+    # ── Bicolor headline: grouped lines, cream / lavender alt ────────────────
     headline = slide.get("headline", "").upper()
-    words    = headline.split()
-    colors   = [white, lav]  # alternate starting with white
+    raw_sp_words = [w.strip(":.!?,") for w in headline.split() if w.strip(":.!?,")]
+    sp_groups    = _group_headline(raw_sp_words)[:4]
+    colors       = [white, lav]
     y = 178
-    for i, word in enumerate(words[:4]):
-        # Auto-scale font to fit within mw
+    for i, group in enumerate(sp_groups):
         fsize = 132
         fh    = _font("display", fsize)
-        bb    = draw.textbbox((0, 0), word, font=fh)
+        bb    = draw.textbbox((0, 0), group, font=fh)
         ww    = bb[2] - bb[0]
-        while ww > mw and fsize > 60:
+        while ww > int(mw * 0.93) and fsize > 60:
             fsize -= 6
             fh     = _font("display", fsize)
-            bb     = draw.textbbox((0, 0), word, font=fh)
+            bb     = draw.textbbox((0, 0), group, font=fh)
             ww     = bb[2] - bb[0]
         col = colors[i % 2]
-        draw.text((cx - ww // 2, y), word, font=fh, fill=(*col[:3], 255))
+        draw.text((cx - ww // 2, y), group, font=fh, fill=(*col[:3], 255))
         y += (bb[3] - bb[1]) + 6
 
     # ── Species data card ─────────────────────────────────────────────────────
