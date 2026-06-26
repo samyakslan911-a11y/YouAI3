@@ -1,0 +1,214 @@
+{
+  "id": "cta_big",
+  "description": "Plantilla con paneles de hojas, titular bicolor, subtítulo y botones de llamada a la acción.",
+  "bg_color_rgb": [
+    245,
+    240,
+    230
+  ],
+  "clear_zones": [
+    {
+      "label": "Zona del título principal",
+      "x": 204,
+      "y": 218,
+      "w": 700,
+      "h": 240,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el texto del título principal para escribir uno nuevo. Es el texto más grande, ocupando varias líneas."
+    },
+    {
+      "label": "Zona del subtítulo",
+      "x": 270,
+      "y": 512,
+      "w": 470,
+      "h": 38,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el texto del subtítulo para escribir uno nuevo. Es más pequeño que el título."
+    },
+    {
+      "label": "Zona del botón 'GUARDA + COMPARTE'",
+      "x": 372,
+      "y": 612,
+      "w": 335,
+      "h": 46,
+      "fill_rgb": [
+        87,
+        101,
+        75
+      ],
+      "notes": "Limpia el texto del primer botón para escribir uno nuevo. Es un botón rectangular verde oscuro."
+    },
+    {
+      "label": "Zona del botón 'SÍGUEME PARA MÁS'",
+      "x": 372,
+      "y": 684,
+      "w": 335,
+      "h": 46,
+      "fill_rgb": [
+        170,
+        150,
+        192
+      ],
+      "notes": "Limpia el texto del segundo botón para escribir uno nuevo. Es un botón rectangular violeta."
+    },
+    {
+      "label": "Zona del handle de Instagram",
+      "x": 444,
+      "y": 940,
+      "w": 180,
+      "h": 30,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el handle de Instagram en la parte inferior de la imagen."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 482,
+      "y": 91,
+      "w": 25,
+      "h": 25,
+      "cx": 494,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        128,
+        153,
+        118
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa de 4 puntas",
+      "bicolor_colors": null,
+      "placeholder_text": ""
+    },
+    {
+      "role": "headline",
+      "x": 210,
+      "y": 218,
+      "w": 668,
+      "h": 240,
+      "cx": 544,
+      "font_size": 88,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        87,
+        101,
+        75
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Título bicolor, las palabras 'CUÁL ES' y 'FAVORITA' son verde oscuro, 'TU PLANTA' es lila. Se mantiene el signo de interrogación inicial.",
+      "bicolor_colors": [
+        [
+          87,
+          101,
+          75
+        ],
+        [
+          170,
+          150,
+          192
+        ]
+      ],
+      "placeholder_text": "¿CUÁL ES TU PLANTA FAVORITA?"
+    },
+    {
+      "role": "subheadline",
+      "x": 270,
+      "y": 512,
+      "w": 470,
+      "h": 38,
+      "cx": 505,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        128,
+        153,
+        118
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Subtítulo alineado a la izquierda con un pequeño icono de planta al final.",
+      "bicolor_colors": null,
+      "placeholder_text": "cuéntamelo en los comentarios 🌿"
+    },
+    {
+      "role": "button_text",
+      "x": 372,
+      "y": 612,
+      "w": 335,
+      "h": 46,
+      "cx": 539,
+      "font_size": 24,
+      "font_weight": "bold",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Texto en el primer botón, centrado, en mayúsculas.",
+      "bicolor_colors": null,
+      "placeholder_text": "GUARDA + COMPARTE"
+    },
+    {
+      "role": "button_text",
+      "x": 372,
+      "y": 684,
+      "w": 335,
+      "h": 46,
+      "cx": 539,
+      "font_size": 24,
+      "font_weight": "bold",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Texto en el segundo botón, centrado, en mayúsculas.",
+      "bicolor_colors": null,
+      "placeholder_text": "SÍGUEME PARA MÁS"
+    },
+    {
+      "role": "handle",
+      "x": 444,
+      "y": 940,
+      "w": 180,
+      "h": 30,
+      "cx": 534,
+      "font_size": 24,
+      "font_weight": "semibold",
+      "color_rgb": [
+        128,
+        153,
+        118
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Handle de Instagram al final de la imagen.",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "CTA.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

@@ -1,0 +1,347 @@
+{
+  "id": "species",
+  "description": "Plantilla de Instagram 'Planta del mes' con fondo sage, titular bicolor y tarjeta de datos de la planta.",
+  "bg_color_rgb": [
+    151,
+    182,
+    149
+  ],
+  "clear_zones": [
+    {
+      "label": "Título 'MONSTERA'",
+      "x": 182,
+      "y": 222,
+      "w": 716,
+      "h": 104,
+      "fill_rgb": [
+        151,
+        182,
+        149
+      ],
+      "notes": "Limpia el texto 'MONSTERA' para el titular."
+    },
+    {
+      "label": "Título 'DELICIOSA'",
+      "x": 204,
+      "y": 321,
+      "w": 685,
+      "h": 102,
+      "fill_rgb": [
+        151,
+        182,
+        149
+      ],
+      "notes": "Limpia el texto 'DELICIOSA' para el titular."
+    },
+    {
+      "label": "Valor de Luz",
+      "x": 512,
+      "y": 526,
+      "w": 284,
+      "h": 27,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Limpia el valor de 'Luz'."
+    },
+    {
+      "label": "Valor de Riego",
+      "x": 512,
+      "y": 595,
+      "w": 279,
+      "h": 28,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Limpia el valor de 'Riego'."
+    },
+    {
+      "label": "Valor de Humedad",
+      "x": 512,
+      "y": 662,
+      "w": 236,
+      "h": 28,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Limpia el valor de 'Humedad'."
+    },
+    {
+      "label": "Valor de Dificultad",
+      "x": 512,
+      "y": 729,
+      "w": 104,
+      "h": 28,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Limpia el valor de 'Dificultad'."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 521,
+      "y": 128,
+      "w": 38,
+      "h": 36,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa sobre el label principal",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 372,
+      "y": 170,
+      "w": 334,
+      "h": 28,
+      "cx": 540,
+      "font_size": 28,
+      "font_weight": "bold",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Label principal de la plantilla",
+      "bicolor_colors": null,
+      "placeholder_text": "PLANTA DEL MES"
+    },
+    {
+      "role": "headline",
+      "x": 182,
+      "y": 222,
+      "w": 716,
+      "h": 201,
+      "cx": 540,
+      "font_size": 104,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        247,
+        243,
+        237
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Titular bicolor con la primera palabra en blanco y la segunda en lila.",
+      "bicolor_colors": [
+        [
+          247,
+          243,
+          237
+        ],
+        [
+          220,
+          197,
+          230
+        ]
+      ],
+      "placeholder_text": "MONSTERA\nDELICIOSA"
+    },
+    {
+      "role": "table_key",
+      "x": 512,
+      "y": 497,
+      "w": 55,
+      "h": 23,
+      "cx": null,
+      "font_size": 23,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Clave de la tabla: Luz",
+      "bicolor_colors": null,
+      "placeholder_text": "LUZ"
+    },
+    {
+      "role": "table_value",
+      "x": 512,
+      "y": 526,
+      "w": 284,
+      "h": 27,
+      "cx": null,
+      "font_size": 27,
+      "font_weight": "semibold",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Valor de la tabla: Luz",
+      "bicolor_colors": null,
+      "placeholder_text": "Indirecta brillante"
+    },
+    {
+      "role": "table_key",
+      "x": 512,
+      "y": 566,
+      "w": 79,
+      "h": 23,
+      "cx": null,
+      "font_size": 23,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Clave de la tabla: Riego",
+      "bicolor_colors": null,
+      "placeholder_text": "RIEGO"
+    },
+    {
+      "role": "table_value",
+      "x": 512,
+      "y": 595,
+      "w": 279,
+      "h": 28,
+      "cx": null,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Valor de la tabla: Riego",
+      "bicolor_colors": null,
+      "placeholder_text": "1 vez por semana"
+    },
+    {
+      "role": "table_key",
+      "x": 512,
+      "y": 634,
+      "w": 120,
+      "h": 23,
+      "cx": null,
+      "font_size": 23,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Clave de la tabla: Humedad",
+      "bicolor_colors": null,
+      "placeholder_text": "HUMEDAD"
+    },
+    {
+      "role": "table_value",
+      "x": 512,
+      "y": 662,
+      "w": 236,
+      "h": 28,
+      "cx": null,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Valor de la tabla: Humedad",
+      "bicolor_colors": null,
+      "placeholder_text": "Media a alta"
+    },
+    {
+      "role": "table_key",
+      "x": 512,
+      "y": 701,
+      "w": 149,
+      "h": 23,
+      "cx": null,
+      "font_size": 23,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Clave de la tabla: Dificultad",
+      "bicolor_colors": null,
+      "placeholder_text": "DIFICULTAD"
+    },
+    {
+      "role": "table_value",
+      "x": 512,
+      "y": 729,
+      "w": 104,
+      "h": 28,
+      "cx": null,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Valor de la tabla: Dificultad",
+      "bicolor_colors": null,
+      "placeholder_text": "Fácil"
+    },
+    {
+      "role": "handle",
+      "x": 376,
+      "y": 877,
+      "w": 329,
+      "h": 36,
+      "cx": 540,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        117,
+        107
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Handle de Instagram del canal botánico.",
+      "bicolor_colors": null,
+      "placeholder_text": "@tu.jardin.interior"
+    }
+  ],
+  "source_file": "Planta del mes.png",
+  "source_size": [
+    1080,
+    1080
+  ]
+}

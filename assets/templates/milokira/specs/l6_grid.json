@@ -1,0 +1,379 @@
+{
+  "id": "l6_grid",
+  "description": "Grid 2x2 con paneles, headline, 4 tarjetas alternando lavanda/crema",
+  "bg_color_rgb": [
+    247,
+    243,
+    233
+  ],
+  "clear_zones": [
+    {
+      "label": "limpiar headline",
+      "x": 251,
+      "y": 105,
+      "w": 579,
+      "h": 140,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar 'GRID DE CONTENIDO' antes de escribir el nuevo headline"
+    },
+    {
+      "label": "limpiar item uno",
+      "x": 222,
+      "y": 458,
+      "w": 182,
+      "h": 28,
+      "fill_rgb": [
+        203,
+        191,
+        221
+      ],
+      "notes": "borrar 'Item uno' en la primera tarjeta"
+    },
+    {
+      "label": "limpiar descripción uno",
+      "x": 194,
+      "y": 499,
+      "w": 238,
+      "h": 22,
+      "fill_rgb": [
+        203,
+        191,
+        221
+      ],
+      "notes": "borrar 'Descripción breve' en la primera tarjeta"
+    },
+    {
+      "label": "limpiar item dos",
+      "x": 622,
+      "y": 458,
+      "w": 182,
+      "h": 28,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar 'Item dos' en la segunda tarjeta"
+    },
+    {
+      "label": "limpiar descripción dos",
+      "x": 594,
+      "y": 499,
+      "w": 238,
+      "h": 22,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar 'Descripción breve' en la segunda tarjeta"
+    },
+    {
+      "label": "limpiar item tres",
+      "x": 222,
+      "y": 809,
+      "w": 182,
+      "h": 28,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar 'Item tres' en la tercera tarjeta"
+    },
+    {
+      "label": "limpiar descripción tres",
+      "x": 194,
+      "y": 850,
+      "w": 238,
+      "h": 22,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar 'Descripción breve' en la tercera tarjeta"
+    },
+    {
+      "label": "limpiar item cuatro",
+      "x": 605,
+      "y": 809,
+      "w": 216,
+      "h": 28,
+      "fill_rgb": [
+        203,
+        191,
+        221
+      ],
+      "notes": "borrar 'Item cuatro' en la cuarta tarjeta"
+    },
+    {
+      "label": "limpiar descripción cuatro",
+      "x": 594,
+      "y": 850,
+      "w": 238,
+      "h": 22,
+      "fill_rgb": [
+        203,
+        191,
+        221
+      ],
+      "notes": "borrar 'Descripción breve' en la cuarta tarjeta"
+    },
+    {
+      "label": "limpiar handle",
+      "x": 447,
+      "y": 1281,
+      "w": 133,
+      "h": 25,
+      "fill_rgb": [
+        247,
+        243,
+        233
+      ],
+      "notes": "borrar '@milokira' antes de escribir el nuevo handle"
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 515,
+      "y": 59,
+      "w": 50,
+      "h": 46,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "estrella decorativa",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "headline",
+      "x": 251,
+      "y": 105,
+      "w": 579,
+      "h": 140,
+      "cx": 540,
+      "font_size": 65,
+      "font_weight": "bold",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "bicolor, 'DE' en verde oscuro, el resto en verde claro",
+      "bicolor_colors": [
+        [
+          91,
+          102,
+          85
+        ],
+        [
+          116,
+          140,
+          106
+        ]
+      ],
+      "placeholder_text": "GRID DE CONTENIDO"
+    },
+    {
+      "role": "body",
+      "x": 222,
+      "y": 458,
+      "w": 182,
+      "h": 28,
+      "cx": 313,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Item uno"
+    },
+    {
+      "role": "body",
+      "x": 194,
+      "y": 499,
+      "w": 238,
+      "h": 22,
+      "cx": 313,
+      "font_size": 22,
+      "font_weight": "regular",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Descripción breve"
+    },
+    {
+      "role": "body",
+      "x": 622,
+      "y": 458,
+      "w": 182,
+      "h": 28,
+      "cx": 713,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Item dos"
+    },
+    {
+      "role": "body",
+      "x": 594,
+      "y": 499,
+      "w": 238,
+      "h": 22,
+      "cx": 713,
+      "font_size": 22,
+      "font_weight": "regular",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Descripción breve"
+    },
+    {
+      "role": "body",
+      "x": 222,
+      "y": 809,
+      "w": 182,
+      "h": 28,
+      "cx": 313,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Item tres"
+    },
+    {
+      "role": "body",
+      "x": 194,
+      "y": 850,
+      "w": 238,
+      "h": 22,
+      "cx": 313,
+      "font_size": 22,
+      "font_weight": "regular",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Descripción breve"
+    },
+    {
+      "role": "body",
+      "x": 605,
+      "y": 809,
+      "w": 216,
+      "h": 28,
+      "cx": 713,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Item cuatro"
+    },
+    {
+      "role": "body",
+      "x": 594,
+      "y": 850,
+      "w": 238,
+      "h": 22,
+      "cx": 713,
+      "font_size": 22,
+      "font_weight": "regular",
+      "color_rgb": [
+        91,
+        102,
+        85
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Descripción breve"
+    },
+    {
+      "role": "handle",
+      "x": 447,
+      "y": 1281,
+      "w": 133,
+      "h": 25,
+      "cx": 513,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        151,
+        140,
+        126
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "L6 Grid.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

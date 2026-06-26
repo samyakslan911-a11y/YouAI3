@@ -1,0 +1,177 @@
+{
+  "id": "l4_quote",
+  "description": "Quote en crema con paneles de hojas, comillas decorativas, texto de cita centrado y atribución.",
+  "bg_color_rgb": [
+    247,
+    246,
+    239
+  ],
+  "clear_zones": [
+    {
+      "label": "frase inspiradora",
+      "x": 164,
+      "y": 372,
+      "w": 751,
+      "h": 167,
+      "fill_rgb": [
+        247,
+        246,
+        239
+      ],
+      "notes": "Limpia el texto de la cita."
+    },
+    {
+      "label": "subtexto opcional",
+      "x": 361,
+      "y": 659,
+      "w": 357,
+      "h": 36,
+      "fill_rgb": [
+        247,
+        246,
+        239
+      ],
+      "notes": "Limpia el texto del subtexto."
+    },
+    {
+      "label": "handle",
+      "x": 448,
+      "y": 932,
+      "w": 185,
+      "h": 36,
+      "fill_rgb": [
+        247,
+        246,
+        239
+      ],
+      "notes": "Limpia el handle de Instagram."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 496,
+      "y": 60,
+      "w": 88,
+      "h": 88,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        151,
+        196,
+        175
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "quote",
+      "x": 435,
+      "y": 234,
+      "w": 210,
+      "h": 108,
+      "cx": 540,
+      "font_size": 100,
+      "font_weight": "regular",
+      "color_rgb": [
+        198,
+        187,
+        226
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Comillas decorativas grandes.",
+      "bicolor_colors": null,
+      "placeholder_text": "66"
+    },
+    {
+      "role": "quote",
+      "x": 164,
+      "y": 372,
+      "w": 751,
+      "h": 167,
+      "cx": 540,
+      "font_size": 60,
+      "font_weight": "regular",
+      "color_rgb": [
+        68,
+        86,
+        68
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Texto de cita centrado.",
+      "bicolor_colors": null,
+      "placeholder_text": "Una frase inspiradora que conecta con tu audiencia"
+    },
+    {
+      "role": "sparkle",
+      "x": 501,
+      "y": 612,
+      "w": 79,
+      "h": 79,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        151,
+        196,
+        175
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa pequeña entre líneas de separación.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "attribution",
+      "x": 361,
+      "y": 659,
+      "w": 357,
+      "h": 36,
+      "cx": 540,
+      "font_size": 30,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        67,
+        56
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Subtexto opcional centrado.",
+      "bicolor_colors": null,
+      "placeholder_text": "- Subtexto opcional"
+    },
+    {
+      "role": "handle",
+      "x": 448,
+      "y": 932,
+      "w": 185,
+      "h": 36,
+      "cx": 540,
+      "font_size": 30,
+      "font_weight": "regular",
+      "color_rgb": [
+        108,
+        67,
+        56
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Handle de Instagram centrado.",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "L4 Quote.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

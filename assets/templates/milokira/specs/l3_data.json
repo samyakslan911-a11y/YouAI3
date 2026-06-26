@@ -1,0 +1,288 @@
+{
+  "id": "l3_data",
+  "description": "Template de Instagram botánico con datos destacados de una planta y una imagen de esta.",
+  "bg_color_rgb": [
+    152,
+    179,
+    155
+  ],
+  "clear_zones": [
+    {
+      "label": "Zona de texto 'DATO DESTACADO'",
+      "x": 353,
+      "y": 125,
+      "w": 599,
+      "h": 178,
+      "fill_rgb": [
+        152,
+        179,
+        155
+      ],
+      "notes": "Se limpia el área del titular bicolor 'DATO DESTACADO'."
+    },
+    {
+      "label": "Zona de texto de la tabla",
+      "x": 516,
+      "y": 382,
+      "w": 389,
+      "h": 349,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Se limpia el área de la tabla de key-value para reescribir."
+    },
+    {
+      "label": "Handle de Instagram",
+      "x": 447,
+      "y": 941,
+      "w": 185,
+      "h": 26,
+      "fill_rgb": [
+        152,
+        179,
+        155
+      ],
+      "notes": "Se limpia el handle de Instagram en la parte inferior."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 526,
+      "y": 66,
+      "w": 28,
+      "h": 28,
+      "cx": 540,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "estrella decorativa de 4 puntas",
+      "bicolor_colors": null,
+      "placeholder_text": "*"
+    },
+    {
+      "role": "headline",
+      "x": 353,
+      "y": 125,
+      "w": 599,
+      "h": 73,
+      "cx": 652,
+      "font_size": 80,
+      "font_weight": "bold",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "titular bicolor",
+      "bicolor_colors": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          176,
+          161,
+          203
+        ]
+      ],
+      "placeholder_text": "DATO DESTACADO"
+    },
+    {
+      "role": "table_key",
+      "x": 516,
+      "y": 382,
+      "w": 61,
+      "h": 21,
+      "cx": 546,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        87,
+        85,
+        87
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "título de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "LUZ"
+    },
+    {
+      "role": "table_value",
+      "x": 516,
+      "y": 417,
+      "w": 296,
+      "h": 32,
+      "cx": 664,
+      "font_size": 32,
+      "font_weight": "bold",
+      "color_rgb": [
+        65,
+        63,
+        64
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "valor de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "Indirecta brillante"
+    },
+    {
+      "role": "table_key",
+      "x": 516,
+      "y": 481,
+      "w": 79,
+      "h": 21,
+      "cx": 555,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        87,
+        85,
+        87
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "título de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "RIEGO"
+    },
+    {
+      "role": "table_value",
+      "x": 516,
+      "y": 516,
+      "w": 291,
+      "h": 32,
+      "cx": 661,
+      "font_size": 32,
+      "font_weight": "bold",
+      "color_rgb": [
+        65,
+        63,
+        64
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "valor de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "1 vez por semana"
+    },
+    {
+      "role": "table_key",
+      "x": 516,
+      "y": 580,
+      "w": 128,
+      "h": 21,
+      "cx": 580,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        87,
+        85,
+        87
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "título de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "HUMEDAD"
+    },
+    {
+      "role": "table_value",
+      "x": 516,
+      "y": 615,
+      "w": 202,
+      "h": 32,
+      "cx": 617,
+      "font_size": 32,
+      "font_weight": "bold",
+      "color_rgb": [
+        65,
+        63,
+        64
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "valor de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "Media a alta"
+    },
+    {
+      "role": "table_key",
+      "x": 516,
+      "y": 679,
+      "w": 105,
+      "h": 21,
+      "cx": 568,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        87,
+        85,
+        87
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "título de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "ALTURA"
+    },
+    {
+      "role": "table_value",
+      "x": 516,
+      "y": 714,
+      "w": 272,
+      "h": 32,
+      "cx": 652,
+      "font_size": 32,
+      "font_weight": "bold",
+      "color_rgb": [
+        65,
+        63,
+        64
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "valor de fila de tabla",
+      "bicolor_colors": null,
+      "placeholder_text": "Hasta 2 metros"
+    },
+    {
+      "role": "handle",
+      "x": 447,
+      "y": 941,
+      "w": 185,
+      "h": 26,
+      "cx": 539,
+      "font_size": 26,
+      "font_weight": "regular",
+      "color_rgb": [
+        65,
+        63,
+        64
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "handle de Instagram con arroba",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "L3 Data.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

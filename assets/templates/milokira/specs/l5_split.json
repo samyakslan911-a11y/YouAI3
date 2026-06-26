@@ -1,0 +1,289 @@
+{
+  "id": "l5_split",
+  "description": "Template con mitad izquierda sage con foto y mitad derecha cream con titular bicolor y body text.",
+  "bg_color_rgb": [
+    247,
+    243,
+    237
+  ],
+  "clear_zones": [
+    {
+      "label": "placeholder_headline_line1",
+      "x": 537,
+      "y": 329,
+      "w": 447,
+      "h": 59,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia el texto 'HEADLIN' para el titular bicolor."
+    },
+    {
+      "label": "placeholder_headline_line2",
+      "x": 537,
+      "y": 393,
+      "w": 447,
+      "h": 58,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia el texto 'DIVIDIDO' para el titular bicolor."
+    },
+    {
+      "label": "placeholder_body_text_line1",
+      "x": 537,
+      "y": 481,
+      "w": 380,
+      "h": 26,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia la primera línea del body text."
+    },
+    {
+      "label": "placeholder_body_text_line2",
+      "x": 537,
+      "y": 526,
+      "w": 398,
+      "h": 26,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia la segunda línea del body text."
+    },
+    {
+      "label": "placeholder_body_text_line3",
+      "x": 537,
+      "y": 571,
+      "w": 414,
+      "h": 26,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia la tercera línea del body text."
+    },
+    {
+      "label": "placeholder_body_text_line4",
+      "x": 537,
+      "y": 616,
+      "w": 184,
+      "h": 26,
+      "fill_rgb": [
+        247,
+        243,
+        237
+      ],
+      "notes": "Se limpia la cuarta línea del body text."
+    },
+    {
+      "label": "placeholder_handle",
+      "x": 497,
+      "y": 1269,
+      "w": 86,
+      "h": 21,
+      "fill_rgb": [
+        255,
+        255,
+        255
+      ],
+      "notes": "Se limpia el handle @milokira."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 493,
+      "y": 69,
+      "w": 33,
+      "h": 33,
+      "cx": 509,
+      "font_size": 33,
+      "font_weight": "regular",
+      "color_rgb": [
+        163,
+        166,
+        117
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa de 4 puntas.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "headline",
+      "x": 537,
+      "y": 329,
+      "w": 447,
+      "h": 59,
+      "cx": 760,
+      "font_size": 60,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "Titular bicolor, primera línea.",
+      "bicolor_colors": null,
+      "placeholder_text": "HEADLIN"
+    },
+    {
+      "role": "headline",
+      "x": 537,
+      "y": 393,
+      "w": 447,
+      "h": 58,
+      "cx": 760,
+      "font_size": 60,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        174,
+        159,
+        203
+      ],
+      "text_align": "left",
+      "uppercase": true,
+      "style_notes": "Titular bicolor, segunda línea.",
+      "bicolor_colors": null,
+      "placeholder_text": "DIVIDIDO"
+    },
+    {
+      "role": "body",
+      "x": 537,
+      "y": 481,
+      "w": 380,
+      "h": 26,
+      "cx": 727,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Texto de cuerpo flexible."
+    },
+    {
+      "role": "body",
+      "x": 537,
+      "y": 526,
+      "w": 398,
+      "h": 26,
+      "cx": 736,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Describe el contenido,"
+    },
+    {
+      "role": "body",
+      "x": 537,
+      "y": 571,
+      "w": 414,
+      "h": 26,
+      "cx": 744,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "comparte un tip, o cuenta una"
+    },
+    {
+      "role": "body",
+      "x": 537,
+      "y": 616,
+      "w": 184,
+      "h": 26,
+      "cx": 629,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "historia breve para tu"
+    },
+    {
+      "role": "body",
+      "x": 537,
+      "y": 661,
+      "w": 128,
+      "h": 26,
+      "cx": 601,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        77,
+        95,
+        83
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "audiencia."
+    },
+    {
+      "role": "handle",
+      "x": 497,
+      "y": 1269,
+      "w": 86,
+      "h": 21,
+      "cx": 540,
+      "font_size": 20,
+      "font_weight": "regular",
+      "color_rgb": [
+        151,
+        126,
+        120
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "L5 Split.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

@@ -1,0 +1,280 @@
+{
+  "id": "l2_list",
+  "description": "Lista numerada con texto y un handle, fondo de hojas, colores suaves.",
+  "bg_color_rgb": [
+    239,
+    236,
+    229
+  ],
+  "clear_zones": [
+    {
+      "label": "placeholder etiqueta",
+      "x": 427,
+      "y": 109,
+      "w": 226,
+      "h": 36,
+      "fill_rgb": [
+        239,
+        236,
+        229
+      ],
+      "notes": "Limpia el texto 'ETIQUETA' para reemplazarlo."
+    },
+    {
+      "label": "placeholder headline",
+      "x": 204,
+      "y": 155,
+      "w": 673,
+      "h": 139,
+      "fill_rgb": [
+        239,
+        236,
+        229
+      ],
+      "notes": "Limpia el titular 'HEADLINE DE LA LISTA' para reemplazarlo."
+    },
+    {
+      "label": "placeholder item 1",
+      "x": 286,
+      "y": 361,
+      "w": 290,
+      "h": 36,
+      "fill_rgb": [
+        250,
+        248,
+        243
+      ],
+      "notes": "Limpia el texto del primer ítem para reemplazarlo."
+    },
+    {
+      "label": "placeholder item 2",
+      "x": 286,
+      "y": 483,
+      "w": 290,
+      "h": 36,
+      "fill_rgb": [
+        250,
+        248,
+        243
+      ],
+      "notes": "Limpia el texto del segundo ítem para reemplazarlo."
+    },
+    {
+      "label": "placeholder item 3",
+      "x": 286,
+      "y": 605,
+      "w": 290,
+      "h": 36,
+      "fill_rgb": [
+        250,
+        248,
+        243
+      ],
+      "notes": "Limpia el texto del tercer ítem para reemplazarlo."
+    },
+    {
+      "label": "placeholder item 4",
+      "x": 286,
+      "y": 727,
+      "w": 290,
+      "h": 36,
+      "fill_rgb": [
+        250,
+        248,
+        243
+      ],
+      "notes": "Limpia el texto del cuarto ítem para reemplazarlo."
+    },
+    {
+      "label": "placeholder handle",
+      "x": 441,
+      "y": 941,
+      "w": 198,
+      "h": 37,
+      "fill_rgb": [
+        239,
+        236,
+        229
+      ],
+      "notes": "Limpia el handle para reemplazarlo."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 526,
+      "y": 66,
+      "w": 28,
+      "h": 28,
+      "cx": 540,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        152,
+        169,
+        137
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Estrella decorativa de 4 puntas.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 427,
+      "y": 109,
+      "w": 226,
+      "h": 36,
+      "cx": 540,
+      "font_size": 30,
+      "font_weight": "regular",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "ETIQUETA"
+    },
+    {
+      "role": "headline",
+      "x": 204,
+      "y": 155,
+      "w": 673,
+      "h": 139,
+      "cx": 540,
+      "font_size": 75,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Texto de dos líneas. La primera línea es marrón, la segunda es verde. Color alternante por línea.",
+      "bicolor_colors": [
+        [
+          92,
+          70,
+          56
+        ],
+        [
+          103,
+          131,
+          93
+        ]
+      ],
+      "placeholder_text": "HEADLINE\nDE LA LISTA"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 361,
+      "w": 290,
+      "h": 36,
+      "cx": null,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Punto uno flexible"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 483,
+      "w": 290,
+      "h": 36,
+      "cx": null,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Punto dos flexible"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 605,
+      "w": 290,
+      "h": 36,
+      "cx": null,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Punto tres flexible"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 727,
+      "w": 290,
+      "h": 36,
+      "cx": null,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Punto cuatro flexible"
+    },
+    {
+      "role": "handle",
+      "x": 441,
+      "y": 941,
+      "w": 198,
+      "h": 37,
+      "cx": 540,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        92,
+        70,
+        56
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "L2 List.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

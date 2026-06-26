@@ -1,0 +1,217 @@
+{
+  "id": "guide",
+  "description": "Plantilla de guía rápida con paneles laterales de hojas y una lista numerada de cuidados esenciales.",
+  "bg_color_rgb": [
+    247,
+    246,
+    240
+  ],
+  "clear_zones": [
+    {
+      "label": "Zona del texto principal de la guía",
+      "x": 204,
+      "y": 147,
+      "w": 673,
+      "h": 323,
+      "fill_rgb": [
+        247,
+        246,
+        240
+      ],
+      "notes": "Limpia la etiqueta, el titular y el subtitular antes de reescribir."
+    },
+    {
+      "label": "Zona de la tarjeta numerada",
+      "x": 204,
+      "y": 387,
+      "w": 673,
+      "h": 395,
+      "fill_rgb": [
+        239,
+        230,
+        245
+      ],
+      "notes": "Limpia los ítems numerados de la tarjeta antes de reescribir."
+    },
+    {
+      "label": "Zona del handle de Instagram",
+      "x": 204,
+      "y": 839,
+      "w": 673,
+      "h": 37,
+      "fill_rgb": [
+        247,
+        246,
+        240
+      ],
+      "notes": "Limpia el handle antes de reescribir."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 516,
+      "y": 147,
+      "w": 47,
+      "h": 34,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        207,
+        196,
+        172
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa en la parte superior.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 425,
+      "y": 182,
+      "w": 230,
+      "h": 28,
+      "cx": 540,
+      "font_size": 24,
+      "font_weight": "bold",
+      "color_rgb": [
+        112,
+        59,
+        58
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Texto de guía rápida.",
+      "bicolor_colors": null,
+      "placeholder_text": "GUÍA RÁPIDA"
+    },
+    {
+      "role": "headline",
+      "x": 224,
+      "y": 218,
+      "w": 634,
+      "h": 142,
+      "cx": 540,
+      "font_size": 79,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        108,
+        126,
+        92
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Titular grande de dos líneas.",
+      "bicolor_colors": null,
+      "placeholder_text": "CUIDADOS\nESENCIALES"
+    },
+    {
+      "role": "numbered_item",
+      "x": 252,
+      "y": 444,
+      "w": 583,
+      "h": 37,
+      "cx": 0,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        107,
+        86,
+        120
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Ítem numerado 01.",
+      "bicolor_colors": null,
+      "placeholder_text": "01 Luz indirecta brillante durante el día"
+    },
+    {
+      "role": "numbered_item",
+      "x": 252,
+      "y": 521,
+      "w": 583,
+      "h": 37,
+      "cx": 0,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        107,
+        86,
+        120
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Ítem numerado 02.",
+      "bicolor_colors": null,
+      "placeholder_text": "02 Riega solo cuando la tierra esté seca"
+    },
+    {
+      "role": "numbered_item",
+      "x": 252,
+      "y": 598,
+      "w": 583,
+      "h": 37,
+      "cx": 0,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        107,
+        86,
+        120
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Ítem numerado 03.",
+      "bicolor_colors": null,
+      "placeholder_text": "03 Mantén la humedad con un rociador"
+    },
+    {
+      "role": "numbered_item",
+      "x": 252,
+      "y": 675,
+      "w": 583,
+      "h": 37,
+      "cx": 0,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        107,
+        86,
+        120
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": "Ítem numerado 04.",
+      "bicolor_colors": null,
+      "placeholder_text": "04 Limpia las hojas una vez al mes"
+    },
+    {
+      "role": "handle",
+      "x": 435,
+      "y": 841,
+      "w": 210,
+      "h": 33,
+      "cx": 540,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        112,
+        59,
+        58
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Handle de Instagram.",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "2.png",
+  "source_size": [
+    1080,
+    1080
+  ]
+}

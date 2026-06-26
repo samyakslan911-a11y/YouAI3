@@ -1,0 +1,269 @@
+{
+  "id": "portada",
+  "description": "portada v2 con paneles edge-to-edge, titular bicolor, subtítulo, botón DESLIZA",
+  "bg_color_rgb": [
+    247,
+    244,
+    237
+  ],
+  "clear_zones": [
+    {
+      "label": "titular_linea_1",
+      "x": 130,
+      "y": 240,
+      "w": 820,
+      "h": 120,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar primera línea del titular 'CUIDA TUS'"
+    },
+    {
+      "label": "titular_linea_2",
+      "x": 190,
+      "y": 320,
+      "w": 700,
+      "h": 120,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar segunda línea del titular 'PLANTAS'"
+    },
+    {
+      "label": "titular_linea_3",
+      "x": 380,
+      "y": 395,
+      "w": 320,
+      "h": 90,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar tercera línea del titular 'DE'"
+    },
+    {
+      "label": "titular_linea_4",
+      "x": 200,
+      "y": 470,
+      "w": 690,
+      "h": 120,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar cuarta línea del titular 'INTERIOR'"
+    },
+    {
+      "label": "subtitulo",
+      "x": 240,
+      "y": 570,
+      "w": 630,
+      "h": 30,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar el subtítulo"
+    },
+    {
+      "label": "boton_desliza",
+      "x": 395,
+      "y": 660,
+      "w": 300,
+      "h": 60,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar el texto del botón 'DESLIZA →'"
+    },
+    {
+      "label": "handle",
+      "x": 440,
+      "y": 950,
+      "w": 200,
+      "h": 30,
+      "fill_rgb": [
+        247,
+        244,
+        237
+      ],
+      "notes": "borrar el handle @milokira"
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 520,
+      "y": 90,
+      "w": 40,
+      "h": 40,
+      "cx": 540,
+      "font_size": 30,
+      "font_weight": "regular",
+      "color_rgb": [
+        174,
+        187,
+        137
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "estrella decorativa",
+      "bicolor_colors": null,
+      "placeholder_text": "★"
+    },
+    {
+      "role": "headline",
+      "x": 130,
+      "y": 240,
+      "w": 820,
+      "h": 120,
+      "cx": 540,
+      "font_size": 110,
+      "font_weight": "bold",
+      "color_rgb": [
+        107,
+        131,
+        93
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "titular, primera línea, color verde medio",
+      "bicolor_colors": null,
+      "placeholder_text": "CUIDA TUS"
+    },
+    {
+      "role": "headline",
+      "x": 190,
+      "y": 320,
+      "w": 700,
+      "h": 120,
+      "cx": 540,
+      "font_size": 110,
+      "font_weight": "bold",
+      "color_rgb": [
+        193,
+        187,
+        220
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "titular, segunda línea, color lavanda",
+      "bicolor_colors": null,
+      "placeholder_text": "PLANTAS"
+    },
+    {
+      "role": "headline",
+      "x": 380,
+      "y": 395,
+      "w": 320,
+      "h": 90,
+      "cx": 540,
+      "font_size": 85,
+      "font_weight": "bold",
+      "color_rgb": [
+        70,
+        93,
+        76
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "titular, tercera línea, color verde oscuro",
+      "bicolor_colors": null,
+      "placeholder_text": "DE"
+    },
+    {
+      "role": "headline",
+      "x": 200,
+      "y": 470,
+      "w": 690,
+      "h": 120,
+      "cx": 540,
+      "font_size": 110,
+      "font_weight": "bold",
+      "color_rgb": [
+        70,
+        93,
+        76
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "titular, cuarta línea, color verde oscuro",
+      "bicolor_colors": null,
+      "placeholder_text": "INTERIOR"
+    },
+    {
+      "role": "subheadline",
+      "x": 240,
+      "y": 570,
+      "w": 630,
+      "h": 30,
+      "cx": 540,
+      "font_size": 28,
+      "font_weight": "regular",
+      "color_rgb": [
+        116,
+        122,
+        114
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "subtítulo",
+      "bicolor_colors": null,
+      "placeholder_text": "guía esencial para principiantes"
+    },
+    {
+      "role": "button_text",
+      "x": 435,
+      "y": 680,
+      "w": 220,
+      "h": 20,
+      "cx": 545,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        247,
+        244,
+        237
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "texto del botón",
+      "bicolor_colors": null,
+      "placeholder_text": "DESLIZA →"
+    },
+    {
+      "role": "handle",
+      "x": 440,
+      "y": 950,
+      "w": 200,
+      "h": 30,
+      "cx": 540,
+      "font_size": 25,
+      "font_weight": "regular",
+      "color_rgb": [
+        116,
+        122,
+        114
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "handle de Instagram",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "Portada.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

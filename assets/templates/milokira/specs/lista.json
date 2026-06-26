@@ -1,0 +1,422 @@
+{
+  "id": "lista",
+  "description": "Lista de 5 plantas fáciles de cuidar en un template con hojas de Monstera a los lados.",
+  "bg_color_rgb": [
+    245,
+    240,
+    230
+  ],
+  "clear_zones": [
+    {
+      "label": "zona de texto principal",
+      "x": 242,
+      "y": 194,
+      "w": 612,
+      "h": 730,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el área que contiene el título y los elementos de la lista."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 512,
+      "y": 105,
+      "w": 56,
+      "h": 50,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        112,
+        137,
+        130
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "estrella decorativa",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 453,
+      "y": 140,
+      "w": 181,
+      "h": 27,
+      "cx": 543,
+      "font_size": 26,
+      "font_weight": "regular",
+      "color_rgb": [
+        112,
+        137,
+        130
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "CHECKLIST"
+    },
+    {
+      "role": "headline",
+      "x": 256,
+      "y": 196,
+      "w": 590,
+      "h": 150,
+      "cx": 551,
+      "font_size": 130,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Dos líneas de texto con el número '5' superpuesto y color alternante. La 'Á' lleva tilde.",
+      "bicolor_colors": [
+        [
+          85,
+          114,
+          108
+        ],
+        [
+          85,
+          114,
+          108
+        ]
+      ],
+      "placeholder_text": "5 PLANTAS\nFÁCILES"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 382,
+      "w": 47,
+      "h": 36,
+      "cx": 309,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        180,
+        169,
+        200
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "01"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 384,
+      "w": 136,
+      "h": 36,
+      "cx": 418,
+      "font_size": 36,
+      "font_weight": "bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Pothos"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 420,
+      "w": 200,
+      "h": 24,
+      "cx": 450,
+      "font_size": 24,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "tolera poca luz"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 455,
+      "w": 47,
+      "h": 36,
+      "cx": 309,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        180,
+        169,
+        200
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "02"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 457,
+      "w": 230,
+      "h": 36,
+      "cx": 465,
+      "font_size": 36,
+      "font_weight": "bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Sansevieria"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 493,
+      "w": 250,
+      "h": 24,
+      "cx": 475,
+      "font_size": 24,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "casi indestructible"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 529,
+      "w": 47,
+      "h": 36,
+      "cx": 309,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        180,
+        169,
+        200
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "03"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 531,
+      "w": 200,
+      "h": 36,
+      "cx": 450,
+      "font_size": 36,
+      "font_weight": "bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "ZZ Plant"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 567,
+      "w": 250,
+      "h": 24,
+      "cx": 475,
+      "font_size": 24,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "olvídate de regarla"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 602,
+      "w": 47,
+      "h": 36,
+      "cx": 309,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        180,
+        169,
+        200
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "04"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 604,
+      "w": 200,
+      "h": 36,
+      "cx": 450,
+      "font_size": 36,
+      "font_weight": "bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Potos neón"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 640,
+      "w": 200,
+      "h": 24,
+      "cx": 450,
+      "font_size": 24,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "luz brillante"
+    },
+    {
+      "role": "numbered_item",
+      "x": 286,
+      "y": 676,
+      "w": 47,
+      "h": 36,
+      "cx": 309,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        180,
+        169,
+        200
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "05"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 678,
+      "w": 200,
+      "h": 36,
+      "cx": 450,
+      "font_size": 36,
+      "font_weight": "bold",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Monstera"
+    },
+    {
+      "role": "numbered_item",
+      "x": 350,
+      "y": 714,
+      "w": 250,
+      "h": 24,
+      "cx": 475,
+      "font_size": 24,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        114,
+        108
+      ],
+      "text_align": "left",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "la favorita de todos"
+    },
+    {
+      "role": "handle",
+      "x": 444,
+      "y": 947,
+      "w": 190,
+      "h": 29,
+      "cx": 539,
+      "font_size": 28,
+      "font_weight": "semibold",
+      "color_rgb": [
+        112,
+        137,
+        130
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "Lista.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "id": "cita",
+  "description": "Template de cita con fondo sólido sage, comillas decorativas lavanda y texto en cream.",
+  "bg_color_rgb": [
+    151,
+    172,
+    149
+  ],
+  "clear_zones": [
+    {
+      "label": "cita completa",
+      "x": 130,
+      "y": 427,
+      "w": 820,
+      "h": 220,
+      "fill_rgb": [
+        151,
+        172,
+        149
+      ],
+      "notes": "Limpia el área del texto de la cita antes de escribir el nuevo."
+    },
+    {
+      "label": "atribución",
+      "x": 352,
+      "y": 677,
+      "w": 377,
+      "h": 22,
+      "fill_rgb": [
+        151,
+        172,
+        149
+      ],
+      "notes": "Limpia el área de la atribución antes de escribir la nueva."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 456,
+      "y": 240,
+      "w": 167,
+      "h": 105,
+      "cx": 540,
+      "font_size": 100,
+      "font_weight": "regular",
+      "color_rgb": [
+        199,
+        185,
+        207
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Comillas dobles grandes y decorativas.",
+      "bicolor_colors": null,
+      "placeholder_text": "❝❝"
+    },
+    {
+      "role": "quote",
+      "x": 130,
+      "y": 427,
+      "w": 820,
+      "h": 220,
+      "cx": 540,
+      "font_size": 55,
+      "font_weight": "semibold",
+      "color_rgb": [
+        240,
+        230,
+        218
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Texto de la cita, centrado y en varias líneas.",
+      "bicolor_colors": null,
+      "placeholder_text": "Las plantas no crecen por capricho, crecen porque las escuchas."
+    },
+    {
+      "role": "attribution",
+      "x": 352,
+      "y": 677,
+      "w": 377,
+      "h": 22,
+      "cx": 540,
+      "font_size": 18,
+      "font_weight": "semibold",
+      "color_rgb": [
+        116,
+        126,
+        114
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Atribución en mayúsculas, color gris verdoso.",
+      "bicolor_colors": null,
+      "placeholder_text": "MILOKIRA · DIARIO BOTÁNICO"
+    }
+  ],
+  "source_file": "Cita.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "id": "cta",
+  "description": "CTA con paneles laterales, label CUÉNTANOS, headline bicolor última-palabra-lavanda, botón pill sage",
+  "bg_color_rgb": [
+    245,
+    240,
+    230
+  ],
+  "clear_zones": [
+    {
+      "label": "cuéntanos",
+      "x": 427,
+      "y": 285,
+      "w": 226,
+      "h": 36,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el texto 'CUÉNTANOS'"
+    },
+    {
+      "label": "headline_parte_1",
+      "x": 204,
+      "y": 340,
+      "w": 671,
+      "h": 128,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia la primera parte del headline: ¿CUÁL ES TU PLANTA"
+    },
+    {
+      "label": "headline_parte_2",
+      "x": 204,
+      "y": 464,
+      "w": 671,
+      "h": 192,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia la segunda parte del headline: FAVORITA?"
+    },
+    {
+      "label": "botón_déjanos_un_comentario",
+      "x": 339,
+      "y": 671,
+      "w": 402,
+      "h": 62,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el texto del botón 'DÉJANOS UN COMENTARIO'"
+    },
+    {
+      "label": "síguenos_para_más",
+      "x": 393,
+      "y": 804,
+      "w": 289,
+      "h": 27,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el texto 'Síguenos para más'"
+    },
+    {
+      "label": "handle",
+      "x": 358,
+      "y": 831,
+      "w": 368,
+      "h": 46,
+      "fill_rgb": [
+        245,
+        240,
+        230
+      ],
+      "notes": "Limpia el handle '@tu.jardin.interior'"
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 526,
+      "y": 242,
+      "w": 27,
+      "h": 27,
+      "cx": 539,
+      "font_size": 27,
+      "font_weight": "regular",
+      "color_rgb": [
+        232,
+        219,
+        196
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Sparkle decorativo",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 427,
+      "y": 285,
+      "w": 226,
+      "h": 36,
+      "cx": 539,
+      "font_size": 30,
+      "font_weight": "semibold",
+      "color_rgb": [
+        128,
+        77,
+        72
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "CUÉNTANOS"
+    },
+    {
+      "role": "headline",
+      "x": 204,
+      "y": 340,
+      "w": 671,
+      "h": 316,
+      "cx": 539,
+      "font_size": 89,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        108,
+        140,
+        97
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Bicolor con la última palabra en color lavanda",
+      "bicolor_colors": [
+        [
+          108,
+          140,
+          97
+        ],
+        [
+          189,
+          169,
+          214
+        ]
+      ],
+      "placeholder_text": "¿CUÁL ES TU PLANTA FAVORITA?"
+    },
+    {
+      "role": "button_text",
+      "x": 339,
+      "y": 690,
+      "w": 402,
+      "h": 24,
+      "cx": 539,
+      "font_size": 20,
+      "font_weight": "semibold",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "DÉJANOS UN COMENTARIO"
+    },
+    {
+      "role": "body",
+      "x": 393,
+      "y": 804,
+      "w": 289,
+      "h": 27,
+      "cx": 539,
+      "font_size": 22,
+      "font_weight": "regular",
+      "color_rgb": [
+        128,
+        77,
+        72
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "Síguenos para más"
+    },
+    {
+      "role": "handle",
+      "x": 358,
+      "y": 831,
+      "w": 368,
+      "h": 46,
+      "cx": 539,
+      "font_size": 38,
+      "font_weight": "semibold",
+      "color_rgb": [
+        128,
+        77,
+        72
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": null,
+      "bicolor_colors": null,
+      "placeholder_text": "@tu.jardin.interior"
+    }
+  ],
+  "source_file": "Pregunta CTA.png",
+  "source_size": [
+    1080,
+    1080
+  ]
+}

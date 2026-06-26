@@ -1,0 +1,111 @@
+{
+  "id": "cover",
+  "description": "Portada con paneles de monstera laterales, titular bicolor una-palabra-por-línea, foto de planta en círculo sage.",
+  "bg_color_rgb": [
+    245,
+    243,
+    234
+  ],
+  "clear_zones": [
+    {
+      "label": "zona de texto principal",
+      "x": 298,
+      "y": 196,
+      "w": 484,
+      "h": 272,
+      "fill_rgb": [
+        245,
+        243,
+        234
+      ],
+      "notes": "Limpia el área del título para escribir el texto dinámico."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 517,
+      "y": 113,
+      "w": 46,
+      "h": 46,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        255,
+        255,
+        255
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Sparkle decorativo",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "headline",
+      "x": 313,
+      "y": 204,
+      "w": 453,
+      "h": 68,
+      "cx": 540,
+      "font_size": 60,
+      "font_weight": "bold",
+      "color_rgb": [
+        123,
+        154,
+        114
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Título de dos palabras, una por línea, la primera palabra de color verde pastel.",
+      "bicolor_colors": null,
+      "placeholder_text": "SIENDO"
+    },
+    {
+      "role": "headline",
+      "x": 308,
+      "y": 293,
+      "w": 463,
+      "h": 68,
+      "cx": 540,
+      "font_size": 60,
+      "font_weight": "bold",
+      "color_rgb": [
+        211,
+        185,
+        226
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Título de dos palabras, una por línea, la segunda palabra de color morado pastel.",
+      "bicolor_colors": null,
+      "placeholder_text": "MI MEJOR"
+    },
+    {
+      "role": "headline",
+      "x": 298,
+      "y": 381,
+      "w": 484,
+      "h": 68,
+      "cx": 540,
+      "font_size": 60,
+      "font_weight": "bold",
+      "color_rgb": [
+        87,
+        107,
+        75
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Título de dos palabras, una por línea, la tercera palabra de color verde oscuro.",
+      "bicolor_colors": null,
+      "placeholder_text": "VERSIÓN"
+    }
+  ],
+  "source_file": "1.png",
+  "source_size": [
+    1080,
+    1080
+  ]
+}

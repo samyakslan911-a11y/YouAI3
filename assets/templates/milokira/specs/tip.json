@@ -1,0 +1,164 @@
+{
+  "id": "tip",
+  "description": "Template para consejos diarios con una estructura clara y limpia, ideal para compartir tips de botánica.",
+  "bg_color_rgb": [
+    250,
+    246,
+    239
+  ],
+  "clear_zones": [
+    {
+      "label": "Zona de texto principal",
+      "x": 140,
+      "y": 145,
+      "w": 800,
+      "h": 280,
+      "fill_rgb": [
+        250,
+        246,
+        239
+      ],
+      "notes": "Limpia el área del headline grande 'RIEGO INTELIGENTE' para reescribir con texto dinámico."
+    },
+    {
+      "label": "Caja de contenido",
+      "x": 170,
+      "y": 427,
+      "w": 740,
+      "h": 365,
+      "fill_rgb": [
+        227,
+        219,
+        233
+      ],
+      "notes": "Limpia la caja lavanda que contiene el body text y la subheadline."
+    }
+  ],
+  "text_elements": [
+    {
+      "role": "sparkle",
+      "x": 517,
+      "y": 91,
+      "w": 46,
+      "h": 46,
+      "cx": 540,
+      "font_size": 0,
+      "font_weight": "regular",
+      "color_rgb": [
+        126,
+        129,
+        94
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Estrella decorativa sobre el label del día.",
+      "bicolor_colors": null,
+      "placeholder_text": null
+    },
+    {
+      "role": "label",
+      "x": 426,
+      "y": 143,
+      "w": 228,
+      "h": 38,
+      "cx": 540,
+      "font_size": 38,
+      "font_weight": "bold",
+      "color_rgb": [
+        126,
+        129,
+        94
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Etiqueta superior en mayúsculas.",
+      "bicolor_colors": null,
+      "placeholder_text": "TIP DEL DÍA"
+    },
+    {
+      "role": "headline",
+      "x": 182,
+      "y": 204,
+      "w": 716,
+      "h": 202,
+      "cx": 540,
+      "font_size": 130,
+      "font_weight": "extra_bold",
+      "color_rgb": [
+        85,
+        96,
+        73
+      ],
+      "text_align": "center",
+      "uppercase": true,
+      "style_notes": "Título grande dividido en dos líneas, centrado.",
+      "bicolor_colors": null,
+      "placeholder_text": "RIEGO\nINTELIGEN\nTE"
+    },
+    {
+      "role": "body",
+      "x": 240,
+      "y": 444,
+      "w": 600,
+      "h": 160,
+      "cx": 540,
+      "font_size": 40,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        96,
+        73
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Texto explicativo en la caja lavanda.",
+      "bicolor_colors": null,
+      "placeholder_text": "Antes de regar, mete tu dedo 2 cm\nen la tierra. Si sale seco, es\nmomento. Si sale húmedo, espera."
+    },
+    {
+      "role": "subheadline",
+      "x": 372,
+      "y": 692,
+      "w": 330,
+      "h": 36,
+      "cx": 540,
+      "font_size": 36,
+      "font_weight": "regular",
+      "color_rgb": [
+        85,
+        96,
+        73
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Regla de los 2 cm, entre guiones.",
+      "bicolor_colors": null,
+      "placeholder_text": "— regla de los 2 cm —"
+    },
+    {
+      "role": "handle",
+      "x": 449,
+      "y": 940,
+      "w": 182,
+      "h": 32,
+      "cx": 540,
+      "font_size": 32,
+      "font_weight": "semibold",
+      "color_rgb": [
+        85,
+        96,
+        73
+      ],
+      "text_align": "center",
+      "uppercase": false,
+      "style_notes": "Handle de Instagram del creador.",
+      "bicolor_colors": null,
+      "placeholder_text": "@milokira"
+    }
+  ],
+  "source_file": "Tip.png",
+  "source_size": [
+    1080,
+    1350
+  ]
+}

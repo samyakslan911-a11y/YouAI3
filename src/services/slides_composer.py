@@ -3,6 +3,7 @@ Compose one slide PNG (1080x1350) from a background image + slide data.
 Supports 6 layouts × 6 styles + custom user styles.
 Premium variable fonts: Playfair Display (headlines) + Montserrat (body).
 """
+import json
 import logging
 import os
 from pathlib import Path
@@ -16,7 +17,270 @@ log = logging.getLogger(__name__)
 W, H = 1080, 1350
 CHANNEL_HANDLE = os.getenv("CHANNEL_HANDLE", "@milokira")
 
-_ASSETS = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
+_ASSETS    = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
+_MILO_TPLS = Path(__file__).resolve().parent.parent.parent / "assets" / "templates" / "milokira"
+
+_MILO_BG: dict[str, str] = {
+    "cover":  "1.png",            # 1080×1080 cream + leaf panels
+    "guide":  "2.png",            # 1080×1080 cream + leaf panels
+    "cta":    "Pregunta CTA.png", # 1080×1080 cream + leaf panels
+    "cita":   "Cita.png",         # 1080×1350 sage  + lavender "❝❝" deco
+    "tip":    "Tip.png",          # 1080×1350 cream + big panels + text box
+}
+
+_MILO_PAD: dict[str, tuple] = {
+    "cover": (245, 240, 232),
+    "guide": (245, 240, 232),
+    "cta":   (245, 240, 232),
+}
+
+
+def _load_milo_bg(key: str) -> Image.Image | None:
+    """Load a Canva milokira template. 1080×1080 templates are padded to 1080×1350."""
+    fn = _MILO_BG.get(key)
+    if not fn:
+        return None
+    p = _MILO_TPLS / fn
+    if not p.exists():
+        log.warning(f"Milokira template missing: {p}")
+        return None
+    img = Image.open(p).convert("RGBA")
+    if img.size == (W, H):
+        return img
+    if img.size == (1080, 1080):
+        pad = _MILO_PAD.get(key, (245, 240, 232))
+        out = Image.new("RGBA", (W, H), (*pad, 255))
+        out.paste(img, (0, 0), img)
+        return out
+    return img.resize((W, H), Image.LANCZOS).convert("RGBA")
+
+
+# ── Spec-driven renderer (Gemini Vision → JSON → PIL) ─────────────────────────
+
+_MILO_SPECS_DIR = _MILO_TPLS / "specs"
+
+def _load_milo_spec(key: str) -> dict | None:
+    p = _MILO_SPECS_DIR / f"{key}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.warning(f"Failed to load spec {key}: {e}")
+        return None
+
+
+def _spec_bg(spec: dict) -> Image.Image:
+    """Load and pad the template PNG described by spec."""
+    src = _MILO_TPLS / spec.get("source_file", "")
+    bg_rgb = tuple(spec.get("bg_color_rgb", [245, 240, 232]))
+
+    if src.exists():
+        img = Image.open(src).convert("RGBA")
+    else:
+        img = Image.new("RGBA", (W, H), (*bg_rgb, 255))
+
+    if img.size == (1080, 1080):
+        padded = Image.new("RGBA", (W, H), (*bg_rgb, 255))
+        padded.paste(img, (0, 0))
+        img = padded
+    elif img.size != (W, H):
+        img = img.resize((W, H), Image.LANCZOS).convert("RGBA")
+
+    return img
+
+
+def _spec_clear(img: Image.Image, spec: dict) -> Image.Image:
+    """Paint over spec clear_zones to erase Canva placeholder text."""
+    draw = ImageDraw.Draw(img)
+    bg_rgb = tuple(spec.get("bg_color_rgb", [245, 240, 232]))
+    for z in spec.get("clear_zones", []):
+        fill = tuple(z.get("fill_rgb", bg_rgb))
+        x, y, w, h = z["x"], z["y"], z["w"], z["h"]
+        draw.rectangle([x, y, x + w, y + h], fill=(*fill[:3], 255))
+    return img
+
+
+def _render_milo_from_spec(
+    slide: dict, bg_raw: Image.Image | None, spec_key: str, s: dict
+) -> Image.Image:
+    """
+    Generic spec-driven renderer:
+      1. Load PNG background (Canva design — paneles, formas, colores intactos)
+      2. Erase Canva placeholder text via spec clear_zones
+      3. Draw dynamic text using slide content + milokira style
+
+    The spec (Gemini Vision JSON) tells us WHERE to clear and WHERE text goes.
+    The PIL code renders the actual content.
+    """
+    spec = _load_milo_spec(spec_key)
+    img  = _spec_bg(spec) if spec else Image.new("RGBA", (W, H), (245, 240, 232, 255))
+    if spec:
+        img = _spec_clear(img, spec)
+
+    draw = ImageDraw.Draw(img)
+    cx   = W // 2
+
+    # ── Palette from runtime style ────────────────────────────────────────────
+    dg    = s["primary"]
+    lav   = s.get("lavender", (196, 181, 217))
+    cream = s["overlay"]
+    sage  = s["accent"]
+    brown = s["secondary"]
+
+    # ── Slide content ─────────────────────────────────────────────────────────
+    headline   = slide.get("headline", "").strip()
+    body       = slide.get("body", "").strip()
+    slide_type = slide.get("type", "")
+
+    label_map = {
+        "value":             "GUIA RAPIDA",
+        "context":           "CONTEXTO",
+        "hook":              "HOY",
+        "pattern_interrupt": "LO SABIAS?",
+        "cta":               "CUENTANOS",
+    }
+    label_text = label_map.get(slide_type, "INFO")
+
+    # ── Group spec text elements by role ──────────────────────────────────────
+    elements = (spec or {}).get("text_elements", [])
+    by_role: dict[str, list[dict]] = {}
+    for el in elements:
+        r = el.get("role", "unknown")
+        by_role.setdefault(r, []).append(el)
+
+    # ── Available text width (from first clear_zone or default) ──────────────
+    mw = 740
+    if spec and spec.get("clear_zones"):
+        mw = max(z.get("w", 740) for z in spec["clear_zones"])
+
+    y_cursor = 80
+
+    # ── Sparkle ───────────────────────────────────────────────────────────────
+    for el in by_role.get("sparkle", []):
+        # "❝❝" deco in Cita template is a real graphic element already in the PNG
+        if el.get("placeholder_text", "") in ("❝❞", "““", "❝❝"):
+            continue
+        size = max(min(el.get("w", 22), el.get("h", 22), 28), 12)
+        _milo_sparkle(draw, el.get("cx", cx), el.get("y", y_cursor),
+                      size=size, color=(*sage[:3], 160))
+        y_cursor = el.get("y", y_cursor) + el.get("h", 26) + 8
+
+    # ── Label ─────────────────────────────────────────────────────────────────
+    for el in by_role.get("label", []):
+        sy = _milo_label(draw, label_text, el.get("cx", cx), el.get("y", y_cursor), s)
+        y_cursor = sy
+        break
+
+    # ── Headline ──────────────────────────────────────────────────────────────
+    hl_els = by_role.get("headline", [])
+    if hl_els and headline:
+        el0     = hl_els[0]
+        hl_y    = el0.get("y", y_cursor + 12)
+        notes   = " ".join(e.get("style_notes", "") for e in hl_els).lower()
+        # Detect bicolor: multiple headline elements OR "bicolor/alternating" in notes
+        is_bicolor = len(hl_els) > 1 or "bicolor" in notes or "altern" in notes
+        is_last_lav = "ultima" in notes or "last" in notes
+
+        if is_bicolor:
+            words  = headline.upper().split()
+            colors = [dg, lav]
+            y_pos  = hl_y
+            for i, word in enumerate(words[:5]):
+                fs = 118
+                fh = _font("display", fs)
+                bb = draw.textbbox((0, 0), word, font=fh)
+                while bb[2] - bb[0] > mw and fs > 52:
+                    fs -= 6
+                    fh  = _font("display", fs)
+                    bb  = draw.textbbox((0, 0), word, font=fh)
+                draw.text((cx - (bb[2] - bb[0]) // 2, y_pos), word,
+                          font=fh, fill=(*colors[i % 2][:3], 255))
+                y_pos += (bb[3] - bb[1]) + 8
+            y_cursor = y_pos
+
+        elif is_last_lav:
+            words = headline.upper().split()
+            n     = len(words)
+            y_pos = hl_y
+            for i, word in enumerate(words[:5]):
+                fs = 106
+                fh = _font("display", fs)
+                bb = draw.textbbox((0, 0), word, font=fh)
+                while bb[2] - bb[0] > mw and fs > 48:
+                    fs -= 6
+                    fh  = _font("display", fs)
+                    bb  = draw.textbbox((0, 0), word, font=fh)
+                col = lav if i == n - 1 else dg
+                draw.text((cx - (bb[2] - bb[0]) // 2, y_pos), word,
+                          font=fh, fill=(*col[:3], 255))
+                y_pos += (bb[3] - bb[1]) + 6
+            y_cursor = y_pos
+
+        else:
+            fh = _font("display", s.get("size_h", 96))
+            y_cursor = _draw_text(draw, headline.upper(), fh, dg, mw, cx, hl_y, gap=14)
+
+    # ── Quote (Cita template) ─────────────────────────────────────────────────
+    for el in by_role.get("quote", []):
+        fh  = _font("display", 68)
+        qmw = el.get("w", mw)
+        y_cursor = _draw_text(draw, headline, fh, cream, qmw, el.get("cx", cx),
+                              el.get("y", y_cursor + 20), gap=18)
+        break
+
+    # ── Numbered list (from body bullets) ────────────────────────────────────
+    if by_role.get("numbered_item") and body:
+        bullets = [l for l in body.split("\n") if l.strip()]
+        if bullets:
+            cy1    = y_cursor + 30
+            cy2    = min(cy1 + 68 * len(bullets[:4]) + 52, H - 120)
+            img    = _milo_numbered_card(img, bullets, s, cy1, cy2)
+            draw   = ImageDraw.Draw(img)
+            y_cursor = cy2 + 20
+
+    # ── Body text ────────────────────────────────────────────────────────────
+    elif by_role.get("body") and body and not by_role.get("quote"):
+        el  = by_role["body"][0]
+        fb  = _font("reg", s.get("size_b", 34))
+        bw  = el.get("w", mw)
+        y_cursor = _draw_text(draw, body, fb, brown, bw,
+                              el.get("cx", cx), el.get("y", y_cursor + 20), gap=18)
+
+    # ── Attribution ──────────────────────────────────────────────────────────
+    for el in by_role.get("attribution", []):
+        attr = body if body and not by_role.get("quote") else "- milokira · diario botanico"
+        fa   = _font("reg", 28)
+        ba   = draw.textbbox((0, 0), attr, font=fa)
+        draw.text((cx - (ba[2] - ba[0]) // 2, el.get("y", H - 130)),
+                  attr, font=fa, fill=(*cream[:3], 130))
+        break
+
+    # ── CTA button (button_text or button role) ───────────────────────────────
+    btn_els = by_role.get("button_text", []) or by_role.get("button", [])
+    if btn_els:
+        el     = btn_els[0]
+        btn_w, btn_h = 560, 78
+        btn_x  = cx - btn_w // 2
+        btn_y  = el.get("y", y_cursor + 50)
+        layer  = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(layer).rounded_rectangle(
+            [btn_x, btn_y, btn_x + btn_w, btn_y + btn_h],
+            radius=btn_h // 2, fill=(*sage[:3], 245),
+        )
+        img  = Image.alpha_composite(img.convert("RGBA"), layer)
+        draw = ImageDraw.Draw(img)
+        cta  = slide.get("cta_text", "DEJANOS UN COMENTARIO")
+        fb   = _font("lightb", 30)
+        bb   = draw.textbbox((0, 0), cta, font=fb)
+        draw.text((cx - (bb[2] - bb[0]) // 2,
+                   btn_y + (btn_h - (bb[3] - bb[1])) // 2),
+                  cta, font=fb, fill=(255, 255, 255, 255))
+
+    # ── Handle always at bottom ───────────────────────────────────────────────
+    _milo_handle(draw, s)
+
+    return img.convert("RGB")
 
 Layout = Literal["hero", "split", "card", "quote", "minimal", "editorial"]
 Style  = Literal["terracota", "botanico", "aesthetic", "dark_jungle", "sage", "ivory", "milokira"]
@@ -891,162 +1155,6 @@ def _layout_editorial(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 # ── Milokira template compositor ─────────────────────────────────────────────
 
-def _milo_t1_cover(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
-    """
-    Template 1 — portada: cream bg + paneles laterales + titular bicolor + foto planta.
-    · Fondo cream, paneles con foto de planta en bordes izq/der
-    · Sparkle centrado arriba
-    · Headline bicolor: alternan dark green / lavanda, una palabra por línea
-    · Foto de la planta en círculo grande debajo del texto
-    · @milokira sutil al fondo
-    """
-    dg    = s["primary"]                      # forest green
-    lav   = s.get("lavender", (196, 181, 217))
-    cream = s["overlay"]
-    brown = s["secondary"]
-
-    idx   = slide.get("index", 0)
-    total = slide.get("_total", 5)
-
-    base   = Image.new("RGB", (W, H), cream)
-    result = _milo_side_panels(base, bg_raw, s).convert("RGBA")
-    draw   = ImageDraw.Draw(result)
-
-    cx = W // 2
-    panel_w = 145
-    inner_m = 36
-    mw = W - (panel_w + inner_m) * 2
-
-    # Sparkle
-    _milo_sparkle(draw, cx, 88, size=20, color=(*s["accent"][:3], 160))
-
-    # Bicolor headline: dark green / lavender alternating per word
-    headline = slide.get("headline", "").upper()
-    words    = headline.split()
-    colors   = [dg, lav]
-    y = 128
-    for i, word in enumerate(words[:4]):
-        fsize = 118
-        fh = _font("display", fsize)
-        bb = draw.textbbox((0, 0), word, font=fh)
-        while bb[2] - bb[0] > mw and fsize > 52:
-            fsize -= 6
-            fh = _font("display", fsize)
-            bb = draw.textbbox((0, 0), word, font=fh)
-        col = colors[i % 2]
-        draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*col[:3], 255))
-        y += (bb[3] - bb[1]) + 8
-
-    # Plant photo: large circle, centered below headline
-    margin_bot = 100
-    avail_h    = H - y - margin_bot - 40
-    photo_size = min(mw, avail_h)
-    photo_x    = cx - photo_size // 2
-    photo_y    = y + 28
-
-    if bg_raw is not None:
-        pw, ph = bg_raw.size
-        sq  = min(pw, ph)
-        lft = (pw - sq) // 2
-        tp  = max(0, int(ph * 0.05))
-        crop = bg_raw.crop((lft, tp, lft + sq, tp + sq))
-        crop = crop.resize((photo_size, photo_size), Image.LANCZOS)
-        crop = ImageEnhance.Color(crop).enhance(1.18)
-        crop = ImageEnhance.Contrast(crop).enhance(1.08)
-        # Ellipse mask (clean circle)
-        mask = Image.new("L", (photo_size, photo_size), 0)
-        ImageDraw.Draw(mask).ellipse([0, 0, photo_size, photo_size], fill=255)
-        result.paste(crop.convert("RGBA"), (photo_x, photo_y), mask)
-        draw = ImageDraw.Draw(result)
-
-    # Subtle @milokira at bottom in dark green
-    _milo_handle(draw, s)
-
-    return result.convert("RGB")
-
-
-def _milo_t4_cta(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
-    """
-    Template 4 — cierre/CTA: cream bg + paneles + pregunta bicolor + botón pill verde.
-    · Sparkle pequeño arriba
-    · Label "CUÉNTANOS" o del tipo de slide
-    · Headline bicolor: dark green / lavanda (última palabra en lavanda)
-    · Botón pill verde con texto blanco
-    · "Síguenos para más" + @milokira al fondo
-    """
-    dg    = s["primary"]
-    lav   = s.get("lavender", (196, 181, 217))
-    cream = s["overlay"]
-    brown = s["secondary"]
-    sage  = s["accent"]
-
-    idx   = slide.get("index", 0)
-    total = slide.get("_total", 5)
-
-    base   = Image.new("RGB", (W, H), cream)
-    result = _milo_side_panels(base, bg_raw, s).convert("RGBA")
-    draw   = ImageDraw.Draw(result)
-
-    cx = W // 2
-    panel_w = 145
-    inner_m = 36
-    mw = W - (panel_w + inner_m) * 2
-
-    # Sparkle
-    _milo_sparkle(draw, cx, 82, size=18, color=(*sage[:3], 130))
-
-    # Small label
-    slide_type = slide.get("type", "")
-    label_map  = {"cta": "CUÉNTANOS", "hook": "HOY", "value": "RECUERDA"}
-    label      = label_map.get(slide_type, "CUÉNTANOS")
-    sy = _milo_label(draw, label, cx, 100, s)
-
-    # Bicolor headline: last word in lavender
-    headline = slide.get("headline", "¿CUÁL ES TU PLANTA FAVORITA?").upper()
-    words    = headline.split()
-    n        = len(words)
-    y = sy + 16
-    for i, word in enumerate(words[:5]):
-        fsize = 106
-        fh = _font("display", fsize)
-        bb = draw.textbbox((0, 0), word, font=fh)
-        while bb[2] - bb[0] > mw and fsize > 48:
-            fsize -= 6
-            fh = _font("display", fsize)
-            bb = draw.textbbox((0, 0), word, font=fh)
-        col = lav if i == n - 1 else dg
-        draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*col[:3], 255))
-        y += (bb[3] - bb[1]) + 6
-
-    # CTA button (green pill)
-    btn_w, btn_h = 560, 78
-    btn_x = cx - btn_w // 2
-    btn_y = y + 56
-    btn_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
-    bd = ImageDraw.Draw(btn_layer)
-    bd.rounded_rectangle([btn_x, btn_y, btn_x + btn_w, btn_y + btn_h],
-                         radius=btn_h // 2, fill=(*sage[:3], 245))
-    result = Image.alpha_composite(result, btn_layer)
-    draw = ImageDraw.Draw(result)
-
-    cta_text = slide.get("cta_text", "DÉJANOS UN COMENTARIO")
-    fb = _font("lightb", 30)
-    bb = draw.textbbox((0, 0), cta_text, font=fb)
-    draw.text((cx - (bb[2] - bb[0]) // 2,
-               btn_y + (btn_h - (bb[3] - bb[1])) // 2),
-              cta_text, font=fb, fill=(255, 255, 255, 255))
-
-    # "Síguenos para más"
-    fsub = _font("reg", 26)
-    sub  = "Síguenos para más"
-    bs   = draw.textbbox((0, 0), sub, font=fsub)
-    draw.text((cx - (bs[2] - bs[0]) // 2, H - 130),
-              sub, font=fsub, fill=(*brown[:3], 150))
-    _milo_handle(draw, s)
-
-    return result.convert("RGB")
-
-
 def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
     """
     Template 3 — especificaciones: sage green sólido + headline bicolor + card de datos.
@@ -1181,101 +1289,34 @@ def _compose_milokira(
     slide: dict, bg_raw: Image.Image | None, s: dict
 ) -> Image.Image:
     """
-    Dispatch slide → milokira template:
+    Dispatch slide → milokira template (spec-driven):
 
-    T1 (cream + paneles + bicolor + foto)  → portada   (index 0)
-    T2 (cream + paneles + numbered card)   → guías/cuidados (slides intermedios)
-    T3 (sage sólido + data card)           → especificaciones (body con KEY:value)
-    T4 (cream + paneles + botón CTA)       → cierre    (último slide)
+    cover   → index 0 — spec "cover"  (Canva 1.png, paneles laterales)
+    cita    → quote / pattern_interrupt — spec "cita" (sage + ❝❝ deco)
+    species → KEY:value body — PIL T3 (sage card, no spec needed)
+    cta     → último slide — spec "cta" (Canva Pregunta CTA.png)
+    guide   → resto — spec "guide" (Canva 2.png, numbered card)
     """
-    layout = slide.get("layout", "hero")
     idx    = slide.get("index", 0)
     total  = slide.get("_total", 5)
+    layout = slide.get("layout", "hero")
+    stype  = slide.get("type", "")
     body   = slide.get("body", "").strip()
 
-    # T1: portada
     if idx == 0:
-        return _milo_t1_cover(slide, bg_raw, s)
+        return _render_milo_from_spec(slide, bg_raw, "cover", s)
 
-    # T4: cierre (último slide)
     if idx == total - 1:
-        return _milo_t4_cta(slide, bg_raw, s)
+        return _render_milo_from_spec(slide, bg_raw, "cta", s)
 
-    # T3: especificaciones — body tiene pares KEY:value (≥2 líneas con ":")
     kv_count = sum(1 for line in body.split("\n") if ":" in line and line.strip())
     if kv_count >= 2:
         return _milo_t3_species_card(slide, bg_raw, s)
 
-    # ── Base: cream background with plant side panels ─────────────────────────
-    base = Image.new("RGB", (W, H), s["overlay"])
-    base = _milo_side_panels(base, bg_raw, s)
-    result = base.convert("RGBA")
-    draw   = ImageDraw.Draw(result)
+    if layout == "quote" or stype == "pattern_interrupt":
+        return _render_milo_from_spec(slide, bg_raw, "cita", s)
 
-    headline = slide.get("headline", "")
-    body     = slide.get("body", "")
-    cx       = W // 2
-
-    # Content center zone: inset from side panels + inner margin
-    panel_w = 145
-    inner_m = 36
-    mw  = W - (panel_w + inner_m) * 2   # max text width
-
-    def _bullets_from_body(b: str) -> list[str]:
-        return [l for l in b.split("\n") if l.strip()]
-
-    def _add_numbered_card(res: Image.Image, bullets: list[str], start_y: int) -> Image.Image:
-        cy1 = start_y
-        cy2 = min(cy1 + 68 * len(bullets[:4]) + 52, int(H * 0.93))
-        return _milo_numbered_card(res, bullets, s, cy1, cy2)
-
-    slide_type = slide.get("type", "")
-    label_map  = {
-        "value":            "INFO",
-        "context":          "CONTEXTO",
-        "cta":              "SÍGUENOS",
-        "hook":             "HOY APRENDEMOS",
-        "pattern_interrupt":"¿LO SABÍAS?",
-    }
-
-    if layout in ("hero", "minimal"):
-        # ── Template 2: sparkle, large headline centered, @milokira bottom ────
-        sy = int(H * 0.30)
-        _milo_sparkle(draw, cx, sy, size=22, color=(*s["accent"][:3], 200))
-        fh = _font("display", s["size_h"] + 8)
-        _draw_text(draw, headline, fh, s["primary"], mw, cx, sy + 36, gap=20)
-        _milo_handle(draw, s)
-
-    elif layout in ("quote", "pattern_interrupt"):
-        # ── Template 3: sparkle, small label, large quote, body below ─────────
-        sy = int(H * 0.20)
-        _milo_sparkle(draw, cx, sy, size=22, color=(*s["accent"][:3], 200))
-        label = label_map.get(slide_type, "¿LO SABÍAS?")
-        sy = _milo_label(draw, label, cx, sy + 30, s)
-        fh = _font("display", s["size_h"] + 4)
-        ey = _draw_text(draw, headline, fh, s["primary"], mw, cx, sy + 20, gap=20)
-        if body:
-            fb = _font("reg", s["size_b"])
-            _draw_text(draw, body, fb, s["secondary"], mw, cx, ey + 30, gap=16)
-        _milo_handle(draw, s)
-
-    else:
-        # ── Template 4: sparkle + label + headline + numbered card ────────────
-        label = label_map.get(slide_type, "GUÍA RÁPIDA")
-        sy = int(H * 0.14)
-        _milo_sparkle(draw, cx, sy, size=18, color=(*s["accent"][:3], 180))
-        sy = _milo_label(draw, label, cx, sy + 28, s)
-
-        fh = _font("display", s["size_h"] - 8)
-        ey = _draw_text(draw, headline.upper(), fh, s["primary"], mw, cx, sy + 12, gap=16)
-
-        bullets = _bullets_from_body(body)
-        if bullets:
-            result = _add_numbered_card(result, bullets, ey + 38)
-            draw   = ImageDraw.Draw(result)  # refresh draw after image change
-        _milo_handle(draw, s)
-
-    return result.convert("RGB")
+    return _render_milo_from_spec(slide, bg_raw, "guide", s)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
