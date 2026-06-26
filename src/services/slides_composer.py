@@ -105,7 +105,7 @@ def _spec_clear(img: Image.Image, spec: dict) -> Image.Image:
 _MILO_LAYOUT = {
     "cover": {"panel_w": 130, "inner_m": 28, "y_sparkle": 92, "sparkle_sz": 22, "y_hl": 132, "hl_size": 124, "hl_min": 54, "hl_gap": 14, "style": "bicolor_per_word", "has_photo": True, "photo_margin_top": 36, "photo_max": 580},
     "guide": {"panel_w": 130, "inner_m": 28, "y_sparkle": 72, "sparkle_sz": 20, "y_label": 100, "hl_size": 108, "hl_min": 50, "hl_gap": 14, "style": "bicolor_per_word", "has_numbered": True},
-    "cta":   {"panel_w": 110, "inner_m": 32, "y_sparkle": 84, "sparkle_sz": 20, "y_label": 108, "hl_size": 112, "hl_min": 52, "hl_gap": 8, "style": "bicolor_last_word", "has_button": True, "btn_gap": 52},
+    "cta":   {"panel_w": 110, "inner_m": 32, "y_sparkle": 380, "sparkle_sz": 20, "y_label": 408, "hl_size": 112, "hl_min": 52, "hl_gap": 10, "style": "bicolor_last_word", "has_button": True, "btn_gap": 56},
     "cita":  {"panel_w": 0, "inner_m": 60, "y_quote": 490, "hl_size": 72, "hl_min": 44, "hl_gap": 20, "style": "quote"},
 }
 
@@ -131,8 +131,8 @@ def _paste_plant_photo(img, bg_raw, cx, y0, max_sz, sage):
 
 
 # Short connector words that should never stand alone on a line
-_CONNECTORS = {"Y", "A", "E", "O", "DE", "EL", "LA", "LOS", "LAS", "EN",
-               "AL", "CON", "SIN", "POR", "QUE", "UN", "UNA", "DEL", "ES"}
+_CONNECTORS = {"Y", "A", "E", "O", "YA", "DE", "EL", "LA", "LOS", "LAS",
+               "EN", "AL", "CON", "SIN", "POR", "QUE", "UN", "UNA", "DEL", "ES"}
 
 
 def _group_headline(words: list) -> list:
@@ -210,8 +210,13 @@ def _render_milo_from_spec(
     y = 0
 
     if style == "quote":
-        y = cfg.get("y_quote", 490)
+        # Estimate headline height to vertically center the quote block
         fh = _font("display", cfg["hl_size"])
+        _test_bb = draw.textbbox((0, 0), "AY", font=fh)
+        _line_h  = (_test_bb[3] - _test_bb[1]) + cfg["hl_gap"]
+        _n_lines = max(1, len(headline.split()))
+        _block_h = _line_h * _n_lines + 60 + 40  # attribution + padding
+        y = max(300, (H - _block_h) // 2)
         y = _draw_text(draw, headline, fh, cream, mw, cx, y, gap=cfg["hl_gap"])
         attr_raw = (body or "milokira · diario botánico")
         # Truncate attribution so it fits in mw
@@ -239,7 +244,7 @@ def _render_milo_from_spec(
     if "y_hl" in cfg:
         y = max(y, cfg["y_hl"])
 
-    raw_words = [w.strip(":.!?,") for w in headline.upper().split() if w.strip(":.!?,")]
+    raw_words = [w.strip(":.!?,¿¡") for w in headline.upper().split() if w.strip(":.!?,¿¡")]
     fs    = cfg["hl_size"]
     fs_m  = cfg["hl_min"]
     gap   = cfg["hl_gap"]
@@ -1213,7 +1218,7 @@ def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> I
 
     # ── Bicolor headline: grouped lines, cream / lavender alt ────────────────
     headline = slide.get("headline", "").upper()
-    raw_sp_words = [w.strip(":.!?,") for w in headline.split() if w.strip(":.!?,")]
+    raw_sp_words = [w.strip(":.!?,¿¡") for w in headline.split() if w.strip(":.!?,¿¡")]
     sp_groups    = _group_headline(raw_sp_words)[:4]
     colors       = [white, lav]
     y = 178
