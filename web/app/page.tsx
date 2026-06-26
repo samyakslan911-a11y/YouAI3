@@ -1120,7 +1120,7 @@ function SlidesCreatorStudio() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("botanico");
   const [seriesPart, setSeriesPart] = useState<number | undefined>();
-  const [slideCount, setSlideCount] = useState(10);
+  const [slideCount, setSlideCount] = useState(5);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.getSlides>> | null>(null);
@@ -1493,11 +1493,11 @@ function SlidesCreatorStudio() {
                 <div className="ml-auto flex items-center gap-1.5">
                   <span className="text-zinc-700 text-[10px] mr-0.5">Slides</span>
                   <div className="flex items-center gap-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded-lg p-0.5">
-                    {[5, 7, 10, 15].map(n => (
+                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
                       <button key={n} onClick={() => setSlideCount(n)}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                        className={`w-6 h-6 rounded-md text-[11px] font-medium transition-all ${
                           slideCount === n
-                            ? "bg-zinc-600 text-white shadow-sm"
+                            ? "bg-emerald-600 text-white shadow-sm"
                             : "text-zinc-500 hover:text-zinc-300"
                         }`}>
                         {n}

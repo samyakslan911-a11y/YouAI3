@@ -213,10 +213,17 @@ def _render_milo_from_spec(
         y = cfg.get("y_quote", 490)
         fh = _font("display", cfg["hl_size"])
         y = _draw_text(draw, headline, fh, cream, mw, cx, y, gap=cfg["hl_gap"])
-        attr = body if body else "milokira - diario botanico"
-        fa   = _font("reg", 30)
-        ba   = draw.textbbox((0, 0), attr, font=fa)
-        draw.text((cx - (ba[2] - ba[0]) // 2, y + 28), attr, font=fa, fill=(*cream[:3], 140))
+        attr_raw = (body or "milokira · diario botánico")
+        # Truncate attribution so it fits in mw
+        fa = _font("reg", 28)
+        attr = attr_raw
+        while True:
+            ba = draw.textbbox((0, 0), attr, font=fa)
+            if ba[2] - ba[0] <= mw or len(attr) < 10:
+                break
+            attr = attr[: len(attr) - 4].rstrip() + "..."
+        ba = draw.textbbox((0, 0), attr, font=fa)
+        draw.text((cx - (ba[2] - ba[0]) // 2, y + 32), attr, font=fa, fill=(*cream[:3], 140))
         _milo_handle(draw, s)
         return img.convert("RGB")
 

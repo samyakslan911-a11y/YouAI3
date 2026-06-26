@@ -35,31 +35,73 @@ REGLAS DE CALIDAD (obligatorias):
 8. image_query en inglés: específico y visual, ej. "snake plant sansevieria pot windowsill".
 """
 
-_STRUCTURES = {
-    5:  "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
-        "- Slides 2-3 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
-        "- Slide 4 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
-        "- Slide 5 (cta): call to action. layout: \"hero\"",
-
-    7:  "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
-        "- Slide 2 (contexto): por qué importa. layout: \"split\"\n"
-        "- Slides 3-5 (valor): UNA especie/idea por slide con 3-4 bullets\n"
-        "- Slide 6 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
-        "- Slide 7 (cta): call to action. layout: \"hero\"",
-
-    10: "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
+def _make_structure(n: int) -> str:
+    if n == 1:
+        return "- Slide 1 (hook/cover): headline impactante ≤6 palabras. Body vacío. layout: \"hero\""
+    if n == 2:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slide 2 (cta): call to action con pregunta de enganche. layout: \"hero\""
+        )
+    if n == 3:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slide 2 (valor): 3-4 bullets con datos concretos. layout: \"card\"\n"
+            "- Slide 3 (cta): call to action. layout: \"hero\""
+        )
+    if n == 4:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slides 2-3 (valor): UNA idea por slide con 3-4 bullets de datos reales\n"
+            "- Slide 4 (cta): call to action. layout: \"hero\""
+        )
+    if n == 5:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slides 2-3 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
+            "- Slide 4 (pattern_interrupt): stat sorprendente ≤15 palabras. layout: \"quote\"\n"
+            "- Slide 5 (cta): call to action con pregunta de enganche. layout: \"hero\""
+        )
+    if n == 6:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slide 2 (contexto): por qué importa. 1-2 oraciones. layout: \"split\"\n"
+            "- Slides 3-4 (valor): UNA idea por slide con 3-4 bullets\n"
+            "- Slide 5 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+            "- Slide 6 (cta): call to action. layout: \"hero\""
+        )
+    if n == 7:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slide 2 (contexto): por qué importa. layout: \"split\"\n"
+            "- Slides 3-5 (valor): UNA especie/idea por slide con 3-4 bullets\n"
+            "- Slide 6 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+            "- Slide 7 (cta): call to action. layout: \"hero\""
+        )
+    if n == 8:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slide 2 (contexto): por qué importa. layout: \"split\"\n"
+            "- Slides 3-6 (valor): UNA idea por slide con 3-4 bullets de datos reales\n"
+            "- Slide 7 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+            "- Slide 8 (cta): call to action. layout: \"hero\""
+        )
+    if n == 9:
+        return (
+            "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
+            "- Slides 2-3 (contexto): por qué importa, datos de contexto. layout: \"split\"\n"
+            "- Slides 4-7 (valor): UNA idea por slide con 3-4 bullets de datos reales\n"
+            "- Slide 8 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+            "- Slide 9 (cta): call to action. layout: \"hero\""
+        )
+    # 10+
+    return (
+        "- Slide 1 (hook): headline impactante ≤6 palabras. Body vacío. layout: \"hero\"\n"
         "- Slides 2-3 (contexto): por qué importa. layout: \"split\" (máx 25 palabras body)\n"
-        "- Slides 4-8 (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
-        "- Slide 9 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
-        "- Slide 10 (cta): call to action. layout: \"hero\"",
-
-    15: "- Slide 1 (hook): headline impactante ≤8 palabras. Body vacío. layout: \"hero\"\n"
-        "- Slides 2-3 (contexto): por qué importa, datos de contexto. layout: \"split\"\n"
-        "- Slides 4-12 (valor profundo): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
-        "- Slide 13 (resumen): los 3 puntos clave. layout: \"editorial\"\n"
-        "- Slide 14 (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
-        "- Slide 15 (cta): call to action. layout: \"hero\"",
-}
+        f"- Slides 4-{n-2} (valor): UNA especie/idea por slide con 3-4 bullets de datos reales\n"
+        f"- Slide {n-1} (pattern_interrupt): stat sorprendente. layout: \"quote\"\n"
+        f"- Slide {n} (cta): call to action. layout: \"hero\""
+    )
 
 _PROMPT = """\
 Genera un set de {slide_count} slides para Instagram sobre el tema: "{topic}"
@@ -148,35 +190,48 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     if expert_context:
         system_base = system_base + f"\n\nCONTEXTO EXPERTO:\n{expert_context}"
 
-    valid_counts = (5, 7, 10, 15)
-    sc = min(valid_counts, key=lambda x: abs(x - slide_count))
-    structure = _STRUCTURES[sc]
+    sc = max(1, min(slide_count, 10))
+    structure = _make_structure(sc)
 
     # Milokira uses 4 distinct templates — structure content accordingly
     milokira_override = ""
     if style == "milokira":
         milokira_override = """
 REGLAS ESPECIALES PARA ESTILO MILOKIRA:
-Los slides usan 4 templates con roles fijos:
+Los slides usan 4 templates con roles fijos. GENERA CONTENIDO CONCRETO Y VALIOSO.
 
 T1 — PORTADA (index 0, siempre):
-  layout: "hero". headline corto e impactante (2-4 palabras). body: vacío.
-  Ejemplo: "CUIDADOS ESENCIALES" / "PLANTAS QUE PURIFICAN" / "MONSTERA DELICIOSA"
+  layout: "hero". headline: 2-4 palabras MUY impactantes, que generen curiosidad o FOMO.
+  body: vacío "".
+  Ejemplos BUENOS: "EL SECRETO QUE MATA" / "ASÍ SOBREVIVE" / "MONSTERA: LA VERDAD"
+  Ejemplos MALOS: "CUIDADOS BÁSICOS" / "GUÍA COMPLETA" / "APRENDE SOBRE PLANTAS"
 
-T2 — GUÍAS Y CUIDADOS (slides 2 a N-2):
-  layout: "editorial". headline corto ≤4 palabras. body: 3-4 bullets numerables.
-  Estos se renderizan con card numerada (01/02/03/04).
+T2 — GUÍAS CON DATOS (slides intermedios, todos excepto index 0 y último):
+  layout: "editorial". headline ≤4 palabras que nombra el tema específico.
+  body: EXACTAMENTE 3-4 bullets con datos numéricos reales y verificables.
+  Formato obligatorio: "• Dato específico: valor exacto con unidades"
+  Ejemplos BUENOS de bullets:
+    "• Luz: 6-8h indirecta, nunca sol directo en verano"
+    "• Riego: cada 7-10 días, menos en invierno"
+    "• Temperatura ideal: 18-29°C, sin corrientes de aire"
+    "• Humedad: >60%, pulveriza hojas 2x/semana"
+  Ejemplos MALOS: "• Necesita buena luz", "• Riégala con moderación"
 
-T3 — ESPECIFICACIONES (uno o dos slides intermedios):
-  layout: "hero". headline = nombre o categoría. body OBLIGATORIO en formato:
-  "LUZ: [tipo]\\nRIEGO: [frecuencia]\\nHUMEDAD: [nivel]\\nDIFICULTAD: [nivel]"
-  Con exactamente 4 líneas KEY: valor. Este slide se detecta automáticamente
-  por los ":" en el body y renderiza la card sage verde con tabla de datos.
+T3 — FICHA TÉCNICA (opcional, 1-2 slides con datos de especie):
+  layout: "hero". headline = nombre de la especie o categoría técnica.
+  body OBLIGATORIO en formato exacto (4 líneas, MAYÚSCULAS antes del colon):
+  "LUZ: indirecta brillante, 4-6h\\nRIEGO: cada 10 días en verano\\nHUMEDAD: 50-70%\\nDIFICULTAD: media"
+  ¡Las CLAVES deben ser cortas ≤10 chars y en MAYÚSCULAS! La detección automática
+  requiere claves como LUZ, RIEGO, SUELO, HUMEDAD, TOXICA, ORIGEN, FAMILIA.
 
-T4 — CIERRE/CTA (último slide, siempre):
-  layout: "hero". headline = pregunta de enganche (¿cuál es tu planta favorita?
-  ¿ya la tienes en casa? etc). body: vacío.
-  El renderer añade el botón CTA "DÉJANOS UN COMENTARIO" automáticamente.
+T4 — CTA (último slide, siempre):
+  layout: "hero". headline = pregunta directa que invite a comentar o guardar.
+  body: vacío "".
+  Ejemplos BUENOS: "¿YA LA TIENES?" / "¿CUÁL ES LA TUYA?" / "¿SABES CUIDARLA?"
+  El renderer añade botón "DÉJANOS UN COMENTARIO" automáticamente.
+
+IMPORTANTE: Genera información REAL, específica y verificable. No inventes datos.
+Si el tema es una especie, investiga datos reales de esa especie específica.
 """
 
     prompt = system_base + "\n\n" + _PROMPT.format(
