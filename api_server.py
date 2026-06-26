@@ -854,6 +854,50 @@ def cleanup_old_clips(older_than_days: int = 7):
     return {"deleted": len(deleted), "freed_mb": round(freed / 1_048_576, 1), "files": deleted}
 
 
+# ── Canva Connect API — OAuth flow ────────────────────────────────────────────
+
+@app.get("/api/canva/authorize")
+def canva_authorize():
+    """
+    Step 1: Redirect to Canva OAuth consent screen.
+    Visit this URL once in a browser to grant access.
+    """
+    from fastapi.responses import RedirectResponse
+    from src.services.canva_service import generate_auth_url
+    if not os.getenv("CANVA_CLIENT_ID"):
+        raise HTTPException(502, "CANVA_CLIENT_ID not set in env")
+    url = generate_auth_url()
+    return RedirectResponse(url=url)
+
+
+@app.get("/api/canva/callback")
+def canva_callback(code: str, state: str):
+    """
+    Step 2: Canva redirects here after user consent.
+    Shows tokens — copy CANVA_ACCESS_TOKEN, CANVA_REFRESH_TOKEN,
+    CANVA_TOKEN_EXPIRES_AT to Railway env vars.
+    """
+    import time as _time
+    from src.services.canva_service import exchange_code, canva
+    tokens = exchange_code(code, state)
+    canva.store_tokens(tokens)
+    return {
+        "status": "authorized",
+        "instructions": "Add these to Railway env vars and redeploy",
+        "CANVA_ACCESS_TOKEN":    tokens["access_token"],
+        "CANVA_REFRESH_TOKEN":   tokens.get("refresh_token", ""),
+        "CANVA_TOKEN_EXPIRES_AT": str(int(_time.time()) + tokens.get("expires_in", 3600)),
+    }
+
+
+@app.get("/api/canva/templates")
+def canva_list_templates():
+    """List available Canva Brand Templates (use to get template IDs)."""
+    from src.services.canva_service import canva
+    templates = canva.list_brand_templates()
+    return {"templates": [{"id": t["id"], "title": t.get("title", "")} for t in templates]}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
