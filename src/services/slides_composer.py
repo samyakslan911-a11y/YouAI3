@@ -891,14 +891,170 @@ def _layout_editorial(img: Image.Image, slide: dict, s: dict) -> Image.Image:
 
 # ── Milokira template compositor ─────────────────────────────────────────────
 
-def _milo_cover_template1(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
+def _milo_t1_cover(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
     """
-    Template 1 — sage green cover slide:
-    · Full sage solid background
-    · Sparkle + 'PLANTA DEL MES' label (white)
-    · Bicolor headline: alternating lines in cream / lavender (Poppins ExtraBold, very large)
-    · Rounded cream card: plant photo left + key-value data table right
-    · @milokira centered at bottom in white
+    Template 1 — portada: cream bg + paneles laterales + titular bicolor + foto planta.
+    · Fondo cream, paneles con foto de planta en bordes izq/der
+    · Sparkle centrado arriba
+    · Headline bicolor: alternan dark green / lavanda, una palabra por línea
+    · Foto de la planta en círculo grande debajo del texto
+    · @milokira sutil al fondo
+    """
+    dg    = s["primary"]                      # forest green
+    lav   = s.get("lavender", (196, 181, 217))
+    cream = s["overlay"]
+    brown = s["secondary"]
+
+    idx   = slide.get("index", 0)
+    total = slide.get("_total", 5)
+
+    base   = Image.new("RGB", (W, H), cream)
+    result = _milo_side_panels(base, bg_raw, s).convert("RGBA")
+    draw   = ImageDraw.Draw(result)
+
+    cx = W // 2
+    panel_w = 145
+    inner_m = 36
+    mw = W - (panel_w + inner_m) * 2
+
+    # Sparkle
+    _milo_sparkle(draw, cx, 88, size=20, color=(*s["accent"][:3], 160))
+
+    # Bicolor headline: dark green / lavender alternating per word
+    headline = slide.get("headline", "").upper()
+    words    = headline.split()
+    colors   = [dg, lav]
+    y = 128
+    for i, word in enumerate(words[:4]):
+        fsize = 118
+        fh = _font("display", fsize)
+        bb = draw.textbbox((0, 0), word, font=fh)
+        while bb[2] - bb[0] > mw and fsize > 52:
+            fsize -= 6
+            fh = _font("display", fsize)
+            bb = draw.textbbox((0, 0), word, font=fh)
+        col = colors[i % 2]
+        draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*col[:3], 255))
+        y += (bb[3] - bb[1]) + 8
+
+    # Plant photo: large circle, centered below headline
+    margin_bot = 100
+    avail_h    = H - y - margin_bot - 40
+    photo_size = min(mw, avail_h)
+    photo_x    = cx - photo_size // 2
+    photo_y    = y + 28
+
+    if bg_raw is not None:
+        pw, ph = bg_raw.size
+        sq  = min(pw, ph)
+        lft = (pw - sq) // 2
+        tp  = max(0, int(ph * 0.05))
+        crop = bg_raw.crop((lft, tp, lft + sq, tp + sq))
+        crop = crop.resize((photo_size, photo_size), Image.LANCZOS)
+        crop = ImageEnhance.Color(crop).enhance(1.18)
+        crop = ImageEnhance.Contrast(crop).enhance(1.08)
+        # Ellipse mask (clean circle)
+        mask = Image.new("L", (photo_size, photo_size), 0)
+        ImageDraw.Draw(mask).ellipse([0, 0, photo_size, photo_size], fill=255)
+        result.paste(crop.convert("RGBA"), (photo_x, photo_y), mask)
+        draw = ImageDraw.Draw(result)
+
+    # Subtle @milokira at bottom in dark green
+    _milo_handle(draw, s)
+
+    return result.convert("RGB")
+
+
+def _milo_t4_cta(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
+    """
+    Template 4 — cierre/CTA: cream bg + paneles + pregunta bicolor + botón pill verde.
+    · Sparkle pequeño arriba
+    · Label "CUÉNTANOS" o del tipo de slide
+    · Headline bicolor: dark green / lavanda (última palabra en lavanda)
+    · Botón pill verde con texto blanco
+    · "Síguenos para más" + @milokira al fondo
+    """
+    dg    = s["primary"]
+    lav   = s.get("lavender", (196, 181, 217))
+    cream = s["overlay"]
+    brown = s["secondary"]
+    sage  = s["accent"]
+
+    idx   = slide.get("index", 0)
+    total = slide.get("_total", 5)
+
+    base   = Image.new("RGB", (W, H), cream)
+    result = _milo_side_panels(base, bg_raw, s).convert("RGBA")
+    draw   = ImageDraw.Draw(result)
+
+    cx = W // 2
+    panel_w = 145
+    inner_m = 36
+    mw = W - (panel_w + inner_m) * 2
+
+    # Sparkle
+    _milo_sparkle(draw, cx, 82, size=18, color=(*sage[:3], 130))
+
+    # Small label
+    slide_type = slide.get("type", "")
+    label_map  = {"cta": "CUÉNTANOS", "hook": "HOY", "value": "RECUERDA"}
+    label      = label_map.get(slide_type, "CUÉNTANOS")
+    sy = _milo_label(draw, label, cx, 100, s)
+
+    # Bicolor headline: last word in lavender
+    headline = slide.get("headline", "¿CUÁL ES TU PLANTA FAVORITA?").upper()
+    words    = headline.split()
+    n        = len(words)
+    y = sy + 16
+    for i, word in enumerate(words[:5]):
+        fsize = 106
+        fh = _font("display", fsize)
+        bb = draw.textbbox((0, 0), word, font=fh)
+        while bb[2] - bb[0] > mw and fsize > 48:
+            fsize -= 6
+            fh = _font("display", fsize)
+            bb = draw.textbbox((0, 0), word, font=fh)
+        col = lav if i == n - 1 else dg
+        draw.text((cx - (bb[2] - bb[0]) // 2, y), word, font=fh, fill=(*col[:3], 255))
+        y += (bb[3] - bb[1]) + 6
+
+    # CTA button (green pill)
+    btn_w, btn_h = 560, 78
+    btn_x = cx - btn_w // 2
+    btn_y = y + 56
+    btn_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
+    bd = ImageDraw.Draw(btn_layer)
+    bd.rounded_rectangle([btn_x, btn_y, btn_x + btn_w, btn_y + btn_h],
+                         radius=btn_h // 2, fill=(*sage[:3], 245))
+    result = Image.alpha_composite(result, btn_layer)
+    draw = ImageDraw.Draw(result)
+
+    cta_text = slide.get("cta_text", "DÉJANOS UN COMENTARIO")
+    fb = _font("lightb", 30)
+    bb = draw.textbbox((0, 0), cta_text, font=fb)
+    draw.text((cx - (bb[2] - bb[0]) // 2,
+               btn_y + (btn_h - (bb[3] - bb[1])) // 2),
+              cta_text, font=fb, fill=(255, 255, 255, 255))
+
+    # "Síguenos para más"
+    fsub = _font("reg", 26)
+    sub  = "Síguenos para más"
+    bs   = draw.textbbox((0, 0), sub, font=fsub)
+    draw.text((cx - (bs[2] - bs[0]) // 2, H - 130),
+              sub, font=fsub, fill=(*brown[:3], 150))
+    _milo_handle(draw, s)
+
+    return result.convert("RGB")
+
+
+def _milo_t3_species_card(slide: dict, bg_raw: Image.Image | None, s: dict) -> Image.Image:
+    """
+    Template 3 — especificaciones: sage green sólido + headline bicolor + card de datos.
+    · Fondo sage sólido, sin paneles laterales
+    · Sparkle + 'PLANTA DEL MES' en blanco
+    · Headline bicolor: blanco / lavanda alternando por palabra
+    · Card cream redondeada: foto circular izq + tabla key-value der
+    · @milokira blanco al fondo
     """
     sage   = s["accent"]        # (125, 158, 125)
     cream  = s["overlay"]       # (245, 240, 232)
@@ -913,8 +1069,6 @@ def _milo_cover_template1(slide: dict, bg_raw: Image.Image | None, s: dict) -> I
     base   = Image.new("RGB", (W, H), sage)
     result = base.convert("RGBA")
     draw   = ImageDraw.Draw(result)
-
-    _progress_dots(draw, s, idx, total)
 
     cx = W // 2
     mw = W - 120
@@ -1027,36 +1181,36 @@ def _compose_milokira(
     slide: dict, bg_raw: Image.Image | None, s: dict
 ) -> Image.Image:
     """
-    Maps slide layout → milokira Canva template variant:
+    Dispatch slide → milokira template:
 
-    Template 1 (sage solid + species data card):
-      index == 0 / layout hero → cover slide
-    Template 2 (cream + side leaves + CTA):
-      layout=hero on non-cover, minimal
-    Template 3 (cream + side leaves + quote):
-      layout=quote, pattern_interrupt
-    Template 4 (cream + side leaves + numbered guide):
-      layout=editorial, split, card (with bullets)
+    T1 (cream + paneles + bicolor + foto)  → portada   (index 0)
+    T2 (cream + paneles + numbered card)   → guías/cuidados (slides intermedios)
+    T3 (sage sólido + data card)           → especificaciones (body con KEY:value)
+    T4 (cream + paneles + botón CTA)       → cierre    (último slide)
     """
     layout = slide.get("layout", "hero")
     idx    = slide.get("index", 0)
     total  = slide.get("_total", 5)
+    body   = slide.get("body", "").strip()
 
-    # ── Template 1: cover slide (index 0 or hero type with body data) ─────────
-    is_cover = idx == 0 or slide.get("type") == "hook"
-    if is_cover and slide.get("body", "").strip():
-        return _milo_cover_template1(slide, bg_raw, s)
-    if is_cover and layout in ("hero", "minimal"):
-        return _milo_cover_template1(slide, bg_raw, s)
+    # T1: portada
+    if idx == 0:
+        return _milo_t1_cover(slide, bg_raw, s)
+
+    # T4: cierre (último slide)
+    if idx == total - 1:
+        return _milo_t4_cta(slide, bg_raw, s)
+
+    # T3: especificaciones — body tiene pares KEY:value (≥2 líneas con ":")
+    kv_count = sum(1 for line in body.split("\n") if ":" in line and line.strip())
+    if kv_count >= 2:
+        return _milo_t3_species_card(slide, bg_raw, s)
 
     # ── Base: cream background with plant side panels ─────────────────────────
     base = Image.new("RGB", (W, H), s["overlay"])
     base = _milo_side_panels(base, bg_raw, s)
     result = base.convert("RGBA")
     draw   = ImageDraw.Draw(result)
-
-    # ── Progress dots ─────────────────────────────────────────────────────────
-    _progress_dots(draw, s, idx, total)
 
     headline = slide.get("headline", "")
     body     = slide.get("body", "")
@@ -1112,9 +1266,8 @@ def _compose_milokira(
         _milo_sparkle(draw, cx, sy, size=18, color=(*s["accent"][:3], 180))
         sy = _milo_label(draw, label, cx, sy + 28, s)
 
-        # Use slightly smaller font so long species names don't overflow panels
         fh = _font("display", s["size_h"] - 8)
-        ey = _draw_text(draw, headline, fh, s["primary"], mw, cx, sy + 12, gap=16)
+        ey = _draw_text(draw, headline.upper(), fh, s["primary"], mw, cx, sy + 12, gap=16)
 
         bullets = _bullets_from_body(body)
         if bullets:

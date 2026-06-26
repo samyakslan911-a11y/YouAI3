@@ -152,19 +152,31 @@ def generate_content(topic: str, style: SlidStyle, series_part: int | None = Non
     sc = min(valid_counts, key=lambda x: abs(x - slide_count))
     structure = _STRUCTURES[sc]
 
-    # Milokira uses Template 1 cover: hero slide needs care data in KEY:value format
+    # Milokira uses 4 distinct templates — structure content accordingly
     milokira_override = ""
     if style == "milokira":
         milokira_override = """
-REGLA ESPECIAL PARA ESTILO MILOKIRA (cover card):
-- Slide 1 (index 0): layout "hero". headline = nombre de la especie o tema (≤4 palabras).
-  body OBLIGATORIO en este formato exacto (4 líneas con clave: valor):
-  "LUZ: [tipo de luz]
-RIEGO: [frecuencia]
-HUMEDAD: [nivel]
-DIFICULTAD: [nivel]"
-  Si el tema no es una especie, usa las 4 claves más relevantes del tema.
-  NO dejes body vacío para milokira — el cover muestra una tarjeta de datos.
+REGLAS ESPECIALES PARA ESTILO MILOKIRA:
+Los slides usan 4 templates con roles fijos:
+
+T1 — PORTADA (index 0, siempre):
+  layout: "hero". headline corto e impactante (2-4 palabras). body: vacío.
+  Ejemplo: "CUIDADOS ESENCIALES" / "PLANTAS QUE PURIFICAN" / "MONSTERA DELICIOSA"
+
+T2 — GUÍAS Y CUIDADOS (slides 2 a N-2):
+  layout: "editorial". headline corto ≤4 palabras. body: 3-4 bullets numerables.
+  Estos se renderizan con card numerada (01/02/03/04).
+
+T3 — ESPECIFICACIONES (uno o dos slides intermedios):
+  layout: "hero". headline = nombre o categoría. body OBLIGATORIO en formato:
+  "LUZ: [tipo]\\nRIEGO: [frecuencia]\\nHUMEDAD: [nivel]\\nDIFICULTAD: [nivel]"
+  Con exactamente 4 líneas KEY: valor. Este slide se detecta automáticamente
+  por los ":" en el body y renderiza la card sage verde con tabla de datos.
+
+T4 — CIERRE/CTA (último slide, siempre):
+  layout: "hero". headline = pregunta de enganche (¿cuál es tu planta favorita?
+  ¿ya la tienes en casa? etc). body: vacío.
+  El renderer añade el botón CTA "DÉJANOS UN COMENTARIO" automáticamente.
 """
 
     prompt = system_base + "\n\n" + _PROMPT.format(
