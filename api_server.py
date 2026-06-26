@@ -694,18 +694,35 @@ def get_slides(slug: str):
 
 @app.get("/api/slides/{slug}/images/{filename}")
 def serve_slide_image(slug: str, filename: str):
+    from fastapi.responses import RedirectResponse
     path = _safe_path(SLIDES_OUTPUT, slug, "images", filename)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Image not found")
-    return FileResponse(str(path), media_type="image/png")
+    if path.exists():
+        return FileResponse(str(path), media_type="image/png")
+    # File not on local disk (Railway ephemeral FS after re-deploy) — try R2
+    try:
+        from src.services import storage
+        r2_url = storage.public_url(f"slides/{slug}/images/{filename}")
+        if r2_url:
+            return RedirectResponse(url=r2_url, status_code=302)
+    except Exception:
+        pass
+    raise HTTPException(status_code=404, detail="Image not found")
 
 
 @app.get("/api/slides/{slug}/video")
 def serve_slide_video(slug: str):
+    from fastapi.responses import RedirectResponse
     path = _safe_path(SLIDES_OUTPUT, slug, "video.mp4")
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Video not found")
-    return FileResponse(str(path), media_type="video/mp4")
+    if path.exists():
+        return FileResponse(str(path), media_type="video/mp4")
+    try:
+        from src.services import storage
+        r2_url = storage.public_url(f"slides/{slug}/video.mp4")
+        if r2_url:
+            return RedirectResponse(url=r2_url, status_code=302)
+    except Exception:
+        pass
+    raise HTTPException(status_code=404, detail="Video not found")
 
 
 @app.get("/api/slides/{slug}/zip")
