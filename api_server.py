@@ -893,9 +893,16 @@ def canva_callback(code: str, state: str):
 @app.get("/api/canva/templates")
 def canva_list_templates():
     """List available Canva Brand Templates (use to get template IDs)."""
-    from src.services.canva_service import canva
-    templates = canva.list_brand_templates()
-    return {"templates": [{"id": t["id"], "title": t.get("title", "")} for t in templates]}
+    try:
+        from src.services.canva_service import canva, CANVA_CLIENT_ID
+        if not CANVA_CLIENT_ID:
+            raise HTTPException(502, "CANVA_CLIENT_ID not set")
+        templates = canva.list_brand_templates()
+        return {"templates": [{"id": t["id"], "title": t.get("title", "")} for t in templates]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Canva error: {e}")
 
 
 if __name__ == "__main__":
